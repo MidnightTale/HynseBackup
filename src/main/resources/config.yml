@@ -22,3 +22,4 @@ compression:
   # Note: Parallel mode is experimental and may cause performance issues.
   # It increases the server's memory when using parallel mode.
   mode: basic
+  parallelism: 4 # Number of threads to use for parallel compression

@@ -17,11 +17,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.*;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.Deflater;
 
@@ -98,8 +95,15 @@ public class BackupManager {
             @Override
             public void run() {
                 try {
+                    ForkJoinPool forkJoinPool = new ForkJoinPool(backupConfig.getParallelism());
                     Map<String, byte[]> compressedFiles = new ConcurrentHashMap<>();
-                    compressDirectoryToMap(source, source.getName() + File.separator, totalSize, currentSize, compressedFiles);
+                    forkJoinPool.submit(() -> {
+                        try {
+                            compressDirectoryToMap(source, source.getName() + File.separator, totalSize, currentSize, compressedFiles);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    }).join();
 
                     try (FileOutputStream fos = new FileOutputStream(destination);
                          BufferedOutputStream bos = new BufferedOutputStream(fos);
@@ -128,6 +132,7 @@ public class BackupManager {
             }
         }.runTaskAsynchronously(plugin);
     }
+
     private void compressWorld(File source, File destination) throws IOException {
         long totalSize = getFolderSize(source.toPath());
         long[] currentSize = {0};
@@ -147,14 +152,23 @@ public class BackupManager {
                         taos.putArchiveEntry(worldEntry);
                         taos.closeArchiveEntry();
 
-                        compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
+                        int parallelism = backupConfig.getParallelism();
+                        ExecutorService executorService = Executors.newFixedThreadPool(parallelism);
+                        List<Future<Void>> futures = new ArrayList<>();
+
+                        compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize, executorService, futures);
+                        executorService.shutdown();
+                        for (Future<Void> future : futures) {
+                            future.get();
+                        }
                     }
-                } catch (IOException e) {
+                } catch (IOException | InterruptedException | ExecutionException e) {
                     e.printStackTrace();
                 }
             }
         }.runTaskAsynchronously(plugin);
     }
+
     private void compressDirectoryToMap(File source, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
         if (source.listFiles() != null) {
             for (File file : source.listFiles()) {
@@ -191,16 +205,19 @@ public class BackupManager {
             updateBossBarProgress((double) currentSize.get() / totalSize);
         }
     }
-    private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
+    private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize, ExecutorService executorService, List<Future<Void>> futures) throws IOException {
         for (File file : source.listFiles()) {
             String filePath = entryPath + file.getName();
             if (file.isDirectory()) {
                 TarArchiveEntry dirEntry = new TarArchiveEntry(file, filePath + "/");
                 taos.putArchiveEntry(dirEntry);
                 taos.closeArchiveEntry();
-                compressDirectoryToTar(file, filePath + File.separator, taos, totalSize, currentSize);
+                compressDirectoryToTar(file, filePath + File.separator, taos, totalSize, currentSize, executorService, futures);
             } else {
-                addFileToTar(file, filePath, taos, totalSize, currentSize);
+                futures.add(executorService.submit(() -> {
+                    addFileToTar(file, filePath, taos, totalSize, currentSize);
+                    return null;
+                }));
             }
         }
     }

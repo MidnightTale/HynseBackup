@@ -10,6 +10,7 @@ public class BackupConfig {
     private boolean maxBackupEnabled;
     private int maxBackupCount;
     private String compressionMode;
+    private int parallelism;
 
     public BackupConfig(FileConfiguration config) {
         loadSettings(config);
@@ -24,8 +25,8 @@ public class BackupConfig {
         }
         maxBackupEnabled = config.getBoolean("max_backup.enabled");
         maxBackupCount = config.getInt("max_backup.count");
+        parallelism = config.getInt("compression.parallelism", Runtime.getRuntime().availableProcessors());
     }
-
     public boolean isAutoEnabled() {
         return autoEnabled;
     }
@@ -45,4 +46,5 @@ public class BackupConfig {
         return maxBackupCount;
     }
     public String getCompressionMode() {return compressionMode;}
+    public int getParallelism() {return parallelism;}
 }
