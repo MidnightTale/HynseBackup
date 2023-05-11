@@ -95,6 +95,7 @@ public class BackupManager {
             @Override
             public void run() {
                 try {
+                    plugin.getLogger().info("Starting compression of world [" + source.getName() + "] with Parallel mode - thread: " + backupConfig.getParallelism());
                     ForkJoinPool forkJoinPool = new ForkJoinPool(backupConfig.getParallelism());
                     Map<String, byte[]> compressedFiles = new ConcurrentHashMap<>();
                     forkJoinPool.submit(() -> {
@@ -126,6 +127,7 @@ public class BackupManager {
                             }
                         }
                     }
+                    plugin.getLogger().info("Compression of world [" + source.getName() + "] with Parallel mode completed - thread: " + backupConfig.getParallelism());
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -143,6 +145,7 @@ public class BackupManager {
                 try (FileOutputStream fos = new FileOutputStream(destination);
                      BufferedOutputStream bos = new BufferedOutputStream(fos);
                      ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
+                    plugin.getLogger().info("Starting compression of world [" + source.getName() + "] with Basic mode - thread: " + backupConfig.getParallelism());
 
                     try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
                         taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
@@ -162,6 +165,7 @@ public class BackupManager {
                             future.get();
                         }
                     }
+                    plugin.getLogger().info("Compression of world [" + source.getName() + "] with Basic mode completed - thread: " + backupConfig.getParallelism());
                 } catch (IOException | InterruptedException | ExecutionException e) {
                     e.printStackTrace();
                 }
