@@ -156,16 +156,18 @@ public class BackupManager {
         }.runTaskAsynchronously(plugin);
     }
     private void compressDirectoryToMap(File source, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
-        for (File file : source.listFiles()) {
-            String filePath = entryPath + file.getName();
-            if (file.isDirectory()) {
-                compressedFiles.put(filePath + "/", null);
-                compressDirectoryToMap(file, filePath + File.separator, totalSize, currentSize, compressedFiles);
-            } else {
-                compressFileToMap(file, filePath, totalSize, currentSize, compressedFiles);
+        if (source.listFiles() != null) {
+            for (File file : source.listFiles()) {
+                String filePath = entryPath + file.getName();
+                if (file.isDirectory()) {
+                    compressDirectoryToMap(file, filePath + File.separator, totalSize, currentSize, compressedFiles);
+                } else {
+                    compressFileToMap(file, filePath, totalSize, currentSize, compressedFiles);
+                }
             }
         }
     }
+
     private void compressFileToMap(File file, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
         try (FileInputStream fis = new FileInputStream(file)) {
             byte[] fileData = new byte[(int) file.length()];
