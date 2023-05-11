@@ -20,24 +20,27 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.zip.Deflater;
 
 public class BackupManager {
 
     private final JavaPlugin plugin;
     private final BackupConfig backupConfig;
     private final BossBar backupProgressBossBar;
-    private final ExecutorService backupThreadPool;
-
     public BackupManager(JavaPlugin plugin, BackupConfig backupConfig, BossBar backupProgressBossBar) {
         this.plugin = plugin;
         this.backupConfig = backupConfig;
         this.backupProgressBossBar = backupProgressBossBar;
-        this.backupThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
         if (backupConfig.isAutoEnabled()) {
             scheduleAutoBackup();
+        }
+
+        if (backupConfig.getCompressionMode().equalsIgnoreCase("parallel")) {
+            plugin.getLogger().warning("Parallel compression mode is experimental and may cause performance issues.");
         }
     }
 
@@ -63,8 +66,7 @@ public class BackupManager {
         }
     }
 
-    public void backupWorld(World world) {
-        backupThreadPool.submit(() -> {
+    void backupWorld(World world) {
         File worldFolder = world.getWorldFolder();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
         String backupFileName = world.getName() + "_" + LocalDateTime.now().format(formatter) + ".tar.zst";
@@ -74,16 +76,58 @@ public class BackupManager {
         File backupFile = new File(backupWorldFolder, backupFileName);
 
         try {
-            compressWorld(worldFolder, backupFile);
+            if (backupConfig.getCompressionMode().equalsIgnoreCase("parallel")) {
+                compressWorldParallel(worldFolder, backupFile);
+            } else {
+                compressWorld(worldFolder, backupFile);
+            }
             plugin.getLogger().info("World backup successfully created: " + backupFile.getAbsolutePath());
             deleteOldBackups(backupWorldFolder);
         } catch (Exception e) {
             plugin.getLogger().severe("Failed to create world backup: " + e.getMessage());
             e.printStackTrace();
         }
-        });
     }
 
+
+    private void compressWorldParallel(File source, File destination) throws IOException {
+        long totalSize = getFolderSize(source.toPath());
+        AtomicLong currentSize = new AtomicLong(0);
+
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                try {
+                    Map<String, byte[]> compressedFiles = new ConcurrentHashMap<>();
+                    compressDirectoryToMap(source, source.getName() + File.separator, totalSize, currentSize, compressedFiles);
+
+                    try (FileOutputStream fos = new FileOutputStream(destination);
+                         BufferedOutputStream bos = new BufferedOutputStream(fos);
+                         ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
+
+                        try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
+                            taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
+                            taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
+
+                            TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
+                            taos.putArchiveEntry(worldEntry);
+                            taos.closeArchiveEntry();
+
+                            for (Map.Entry<String, byte[]> entry : compressedFiles.entrySet()) {
+                                TarArchiveEntry fileEntry = new TarArchiveEntry(entry.getKey());
+                                fileEntry.setSize(entry.getValue().length);
+                                taos.putArchiveEntry(fileEntry);
+                                taos.write(entry.getValue());
+                                taos.closeArchiveEntry();
+                            }
+                        }
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }.runTaskAsynchronously(plugin);
+    }
     private void compressWorld(File source, File destination) throws IOException {
         long totalSize = getFolderSize(source.toPath());
         long[] currentSize = {0};
@@ -111,7 +155,40 @@ public class BackupManager {
             }
         }.runTaskAsynchronously(plugin);
     }
+    private void compressDirectoryToMap(File source, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
+        for (File file : source.listFiles()) {
+            String filePath = entryPath + file.getName();
+            if (file.isDirectory()) {
+                compressedFiles.put(filePath + "/", null);
+                compressDirectoryToMap(file, filePath + File.separator, totalSize, currentSize, compressedFiles);
+            } else {
+                compressFileToMap(file, filePath, totalSize, currentSize, compressedFiles);
+            }
+        }
+    }
+    private void compressFileToMap(File file, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
+        try (FileInputStream fis = new FileInputStream(file)) {
+            byte[] fileData = new byte[(int) file.length()];
+            fis.read(fileData);
 
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            Deflater deflater = new Deflater(Deflater.BEST_COMPRESSION);
+            deflater.setInput(fileData);
+            deflater.finish();
+
+            byte[] buffer = new byte[4096];
+            while (!deflater.finished()) {
+                int count = deflater.deflate(buffer);
+                baos.write(buffer, 0, count);
+            }
+            deflater.end();
+            byte[] compressedData = baos.toByteArray();
+
+            compressedFiles.put(entryPath, compressedData);
+            currentSize.addAndGet(file.length());
+            updateBossBarProgress((double) currentSize.get() / totalSize);
+        }
+    }
     private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
         for (File file : source.listFiles()) {
             String filePath = entryPath + file.getName();

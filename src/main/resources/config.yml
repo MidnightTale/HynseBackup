@@ -15,3 +15,10 @@ whitelist_world:
 max_backup:
   enabled: true
   count: 3
+
+# Compression settings
+compression:
+  # Compression mode: "basic" or "parallel"
+  # Note: Parallel mode is experimental and may cause performance issues.
+  # It increases the server's memory when using parallel mode.
+  mode: basic

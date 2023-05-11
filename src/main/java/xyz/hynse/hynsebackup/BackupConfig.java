@@ -9,6 +9,7 @@ public class BackupConfig {
     private int autoDelayInterval;
     private boolean maxBackupEnabled;
     private int maxBackupCount;
+    private String compressionMode;
 
     public BackupConfig(FileConfiguration config) {
         loadSettings(config);
@@ -19,6 +20,7 @@ public class BackupConfig {
         if (autoEnabled) {
             autoInterval = config.getInt("auto.interval");
             autoDelayInterval = config.getInt("auto.delay");
+            compressionMode = config.getString("compression.mode");
         }
         maxBackupEnabled = config.getBoolean("max_backup.enabled");
         maxBackupCount = config.getInt("max_backup.count");
@@ -42,4 +44,5 @@ public class BackupConfig {
     public int getMaxBackupCount() {
         return maxBackupCount;
     }
+    public String getCompressionMode() {return compressionMode;}
 }
