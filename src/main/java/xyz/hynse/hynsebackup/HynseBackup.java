@@ -142,7 +142,7 @@ public class HynseBackup extends JavaPlugin {
         int maxBackupCount = config.getInt("max_backup.count");
 
         if (maxBackupEnabled) {
-            File[] backupFiles = backupWorldFolder.listFiles(file -> file.getName().endsWith(".zst"));
+            File[] backupFiles = backupWorldFolder.listFiles(file -> file.getName().endsWith(".tar.zst"));
             if (backupFiles != null && backupFiles.length > maxBackupCount) {
                 Arrays.sort(backupFiles, Comparator.comparingLong(File::lastModified));
                 for (int i = 0; i < backupFiles.length - maxBackupCount; i++) {
