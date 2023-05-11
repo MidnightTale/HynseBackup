@@ -1,4 +1,4 @@
-name: HynseBuckup
+name: HynseBackup
 version: '${version}'
-main: xyz.hynse.hynsebuckup.HynseBuckup
+main: xyz.hynse.hynsebackup.HynseBackup
 api-version: 1.19

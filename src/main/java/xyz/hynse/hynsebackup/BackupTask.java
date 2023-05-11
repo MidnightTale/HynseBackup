@@ -1,4 +1,4 @@
-package xyz.hynse.hynsebuckup;
+package xyz.hynse.hynsebackup;
 
 public class BackupTask {
 }

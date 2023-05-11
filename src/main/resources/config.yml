@@ -1,0 +1,12 @@
+# Configuration file for HynseBackup plugin
+
+# List of whitelisted worlds to be backed up
+whitelist_world:
+  - world
+  - world_nether
+  - world_the_end
+
+# Maximum number of backup files to keep
+max_backup:
+  enabled: true
+  count: 5
