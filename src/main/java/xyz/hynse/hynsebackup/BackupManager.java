@@ -20,17 +20,21 @@ import java.time.format.DateTimeFormatter;
 import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class BackupManager {
 
     private final JavaPlugin plugin;
     private final BackupConfig backupConfig;
     private final BossBar backupProgressBossBar;
+    private final ExecutorService backupThreadPool;
 
     public BackupManager(JavaPlugin plugin, BackupConfig backupConfig, BossBar backupProgressBossBar) {
         this.plugin = plugin;
         this.backupConfig = backupConfig;
         this.backupProgressBossBar = backupProgressBossBar;
+        this.backupThreadPool = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
 
         if (backupConfig.isAutoEnabled()) {
             scheduleAutoBackup();
@@ -60,6 +64,7 @@ public class BackupManager {
     }
 
     public void backupWorld(World world) {
+        backupThreadPool.submit(() -> {
         File worldFolder = world.getWorldFolder();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
         String backupFileName = world.getName() + "_" + LocalDateTime.now().format(formatter) + ".tar.zst";
@@ -76,27 +81,35 @@ public class BackupManager {
             plugin.getLogger().severe("Failed to create world backup: " + e.getMessage());
             e.printStackTrace();
         }
+        });
     }
 
-private void compressWorld(File source, File destination) throws IOException {
+    private void compressWorld(File source, File destination) throws IOException {
         long totalSize = getFolderSize(source.toPath());
         long[] currentSize = {0};
 
-        try (FileOutputStream fos = new FileOutputStream(destination);
-             BufferedOutputStream bos = new BufferedOutputStream(fos);
-             ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                try (FileOutputStream fos = new FileOutputStream(destination);
+                     BufferedOutputStream bos = new BufferedOutputStream(fos);
+                     ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
 
-            try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
-                taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
-                taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
+                    try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
+                        taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
+                        taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
 
-                TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
-                taos.putArchiveEntry(worldEntry);
-                taos.closeArchiveEntry();
+                        TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
+                        taos.putArchiveEntry(worldEntry);
+                        taos.closeArchiveEntry();
 
-                compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
+                        compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
+                    }
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             }
-        }
+        }.runTaskAsynchronously(plugin);
     }
 
     private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
