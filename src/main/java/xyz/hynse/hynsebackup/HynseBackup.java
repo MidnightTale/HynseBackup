@@ -41,7 +41,7 @@ public class HynseBackup extends JavaPlugin {
     }
     private void backupWhitelistedWorlds() {
         FileConfiguration config = getConfig();
-        List<String> whitelistWorlds = config.getStringList("whitelist-world");
+        List<String> whitelistWorlds = config.getStringList("whitelist_world");
 
         for (String worldName : whitelistWorlds) {
             World world = Bukkit.getWorld(worldName);
