@@ -59,7 +59,7 @@ public class BackupManager {
         }
     }
 
-    private void backupWorld(World world) {
+    public void backupWorld(World world) {
         File worldFolder = world.getWorldFolder();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
         String backupFileName = world.getName() + "_" + LocalDateTime.now().format(formatter) + ".tar.zst";
