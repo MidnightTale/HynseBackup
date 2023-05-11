@@ -1,12 +1,17 @@
-# Configuration file for HynseBackup plugin
+# Enable or disable automatic backup
+auto:
+  enabled: true
+  # Interval between automatic backups in ticks (1 second = 20 ticks)
+  interval: 72000
+  delay: 1
 
-# List of whitelisted worlds to be backed up
+# Whitelist worlds to backup
 whitelist_world:
   - world
   - world_nether
   - world_the_end
 
-# Maximum number of backup files to keep
+# Maximum number of backups to store
 max_backup:
   enabled: true
-  count: 5
+  count: 10
