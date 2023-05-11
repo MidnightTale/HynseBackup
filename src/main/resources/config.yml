@@ -14,4 +14,4 @@ whitelist_world:
 # Maximum number of backups to store
 max_backup:
   enabled: true
-  count: 10
+  count: 3
