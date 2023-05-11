@@ -1,0 +1,4 @@
+name: HynseBuckup
+version: '${version}'
+main: xyz.hynse.hynsebuckup.HynseBuckup
+api-version: 1.19
