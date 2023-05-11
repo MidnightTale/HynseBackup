@@ -17,6 +17,8 @@ public class HynseBackup extends JavaPlugin {
         backupConfig = new BackupConfig(getConfig());
         backupProgressBossBar = Bukkit.createBossBar("Backup in progress...", BarColor.BLUE, BarStyle.SEGMENTED_10);
         BackupManager backupManager = new BackupManager(this, backupConfig, backupProgressBossBar);
-        getCommand("backup").setExecutor(new BackupCommandExecutor(backupManager));
+        BackupCommandExecutor backupCommandExecutor = new BackupCommandExecutor(backupManager, getConfig());
+        getCommand("backup").setExecutor(backupCommandExecutor);
+        getCommand("backup").setTabCompleter(backupCommandExecutor);
     }
 }

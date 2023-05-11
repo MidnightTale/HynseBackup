@@ -5,4 +5,4 @@ api-version: 1.19
 commands:
   backup:
     description: Start a backup for a specified world
-    usage: /<command> start <world>
+    usage: /<command> [start/list] <world>

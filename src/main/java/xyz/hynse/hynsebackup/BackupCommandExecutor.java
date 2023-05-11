@@ -5,20 +5,27 @@ import org.bukkit.World;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
+import org.bukkit.configuration.file.FileConfiguration;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.stream.Collectors;
 
-public class BackupCommandExecutor implements CommandExecutor {
+public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
     private final BackupManager backupManager;
+    private final List<String> whitelistedWorlds;
 
-    public BackupCommandExecutor(BackupManager backupManager) {
+    public BackupCommandExecutor(BackupManager backupManager, FileConfiguration config) {
         this.backupManager = backupManager;
+        this.whitelistedWorlds = config.getStringList("whitelist_world");
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (args.length < 1) {
+        if (args.length == 0) {
             return false;
         }
 
@@ -54,7 +61,7 @@ public class BackupCommandExecutor implements CommandExecutor {
                         if (backupFiles != null) {
                             Arrays.sort(backupFiles, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
                             for (File backupFile : backupFiles) {
-                                sender.sendMessage("           -  " + backupFile.getName());
+                                sender.sendMessage("     -  " + backupFile.getName());
                             }
                         }
                     }
@@ -68,5 +75,19 @@ public class BackupCommandExecutor implements CommandExecutor {
         }
 
         return true;
+    }
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (args.length == 1) {
+            List<String> subcommands = Arrays.asList("start", "list");
+            return subcommands.stream()
+                    .filter(subcommand -> subcommand.startsWith(args[0].toLowerCase()))
+                    .collect(Collectors.toList());
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("start")) {
+            return whitelistedWorlds.stream()
+                    .filter(world -> world.startsWith(args[1].toLowerCase()))
+                    .collect(Collectors.toList());
+        }
+        return new ArrayList<>();
     }
 }
