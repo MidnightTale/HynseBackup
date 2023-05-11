@@ -24,7 +24,7 @@ import java.util.zip.Deflater;
 
 public class BackupManager {
 
-    private final JavaPlugin plugin;
+    public final JavaPlugin plugin;
     private final BackupConfig backupConfig;
     private final BossBar backupProgressBossBar;
     public BackupManager(JavaPlugin plugin, BackupConfig backupConfig, BossBar backupProgressBossBar) {
