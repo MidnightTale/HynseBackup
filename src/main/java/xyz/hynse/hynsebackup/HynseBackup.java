@@ -1,6 +1,7 @@
 package xyz.hynse.hynsebackup;
 
 import org.bukkit.Bukkit;
+import org.bukkit.World;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
@@ -10,7 +11,6 @@ public class HynseBackup extends JavaPlugin {
 
     private BossBar backupProgressBossBar;
     private BackupConfig backupConfig;
-
     @Override
     public void onEnable() {
         saveDefaultConfig();

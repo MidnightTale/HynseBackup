@@ -6,6 +6,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BossBar;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
@@ -27,6 +28,7 @@ public class BackupManager {
     public final JavaPlugin plugin;
     private final BackupConfig backupConfig;
     private final BossBar backupProgressBossBar;
+    private World currentWorld;
     public BackupManager(JavaPlugin plugin, BackupConfig backupConfig, BossBar backupProgressBossBar) {
         this.plugin = plugin;
         this.backupConfig = backupConfig;
@@ -40,7 +42,13 @@ public class BackupManager {
             plugin.getLogger().warning("Parallel compression mode is experimental and may cause performance issues.");
         }
     }
-
+    private void updateBossBarColor(World.Environment environment) {
+        switch (environment) {
+            case NORMAL -> backupProgressBossBar.setColor(BarColor.GREEN);
+            case NETHER -> backupProgressBossBar.setColor(BarColor.RED);
+            case THE_END -> backupProgressBossBar.setColor(BarColor.WHITE);
+        }
+    }
     private void scheduleAutoBackup() {
         new BukkitRunnable() {
             @Override
@@ -65,6 +73,8 @@ public class BackupManager {
 
     void backupWorld(World world) {
         File worldFolder = world.getWorldFolder();
+        updateBossBarColor(world.getEnvironment());
+        this.currentWorld = world;
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
         String backupFileName = world.getName() + "_" + LocalDateTime.now().format(formatter) + ".tar.zst";
 
@@ -235,7 +245,6 @@ public class BackupManager {
             byte[] buffer = new byte[4096];
             while ((bytesRead = fis.read(buffer)) != -1) {
                 taos.write(buffer, 0, bytesRead);
-                currentSize[0] += bytesRead;
                 updateBossBarProgress((double) currentSize[0] / totalSize);
             }
         }
@@ -243,6 +252,8 @@ public class BackupManager {
         taos.closeArchiveEntry();
     }
     private void updateBossBarProgress(double progress) {
+        String progressPercent = String.format("%.1f", progress * 100);
+        backupProgressBossBar.setTitle("Backing up world: " + currentWorld.getName() + " (" + progressPercent + "%)");
         backupProgressBossBar.setProgress(progress);
         for (Player player : Bukkit.getOnlinePlayers()) {
             backupProgressBossBar.addPlayer(player);
