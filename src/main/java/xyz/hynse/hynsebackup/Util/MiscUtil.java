@@ -32,11 +32,6 @@ public class MiscUtil {
                 .mapToLong(p -> p.toFile().length())
                 .sum();
     }
-    public int getNumFiles(Path folder) throws IOException {
-        return (int) Files.walk(folder)
-                .filter(p -> p.toFile().isFile())
-                .count();
-    }
     public void backupWhitelistedWorlds() {
         FileConfiguration config = plugin.getConfig();
         List<String> whitelistWorlds = config.getStringList("whitelist_world");

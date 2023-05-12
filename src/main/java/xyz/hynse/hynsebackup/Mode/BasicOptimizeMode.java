@@ -12,12 +12,12 @@ import xyz.hynse.hynsebackup.Util.DisplayUtil;
 
 import java.io.*;
 
-public class BasicMode {
+public class BasicOptimizeMode {
 
     private final BackupManager backupManager;
     private final DisplayUtil displayUtil;
 
-    public BasicMode(BackupManager backupManager, DisplayUtil displayUtil) {
+    public BasicOptimizeMode(BackupManager backupManager, DisplayUtil displayUtil) {
         this.backupManager = backupManager;
         this.displayUtil = displayUtil;
     }
@@ -31,23 +31,22 @@ public class BasicMode {
             public void run() {
                 try (FileOutputStream fos = new FileOutputStream(destination);
                      BufferedOutputStream bos = new BufferedOutputStream(fos);
-                     ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
+                     ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel());
+                     TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
 
-                    CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
-
+                    CommandSender sender = Bukkit.getConsoleSender();
                     sender.sendMessage("Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode");
 
-                    try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
-                        taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
-                        taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
+                    taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
+                    taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
 
-                        TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
-                        taos.putArchiveEntry(worldEntry);
-                        taos.closeArchiveEntry();
+                    TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
+                    taos.putArchiveEntry(worldEntry);
+                    taos.closeArchiveEntry();
 
-                        compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
-                    }
-                    sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode");
+                    compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
+
+                    sender.sendMessage("Compression of world [" + source.getName() + "] with Basic mode completed - thread: " + backupManager.backupConfig.getParallelism());
                     displayUtil.finishBossBarProgress();
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -59,7 +58,12 @@ public class BasicMode {
     }
 
     private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
-        for (File file : source.listFiles()) {
+        File[] files = source.listFiles();
+        if (files == null) {
+            return;
+        }
+
+        for (File file : files) {
             String filePath = entryPath + file.getName();
             if (file.isDirectory()) {
                 TarArchiveEntry dirEntry = new TarArchiveEntry(file, filePath + "/");
@@ -81,6 +85,7 @@ public class BasicMode {
             byte[] buffer = new byte[4096];
             while ((bytesRead = fis.read(buffer)) != -1) {
                 taos.write(buffer, 0, bytesRead);
+                currentSize[0] += bytesRead;
                 displayUtil.updateBossBarProgress((double) currentSize[0] / totalSize);
             }
         }

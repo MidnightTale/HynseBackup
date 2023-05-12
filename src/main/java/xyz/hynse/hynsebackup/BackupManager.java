@@ -1,12 +1,11 @@
 package xyz.hynse.hynsebackup;
 
-import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.boss.BossBar;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
-import xyz.hynse.hynsebackup.Mode.AdvancedMode;
 import xyz.hynse.hynsebackup.Mode.BasicMode;
+import xyz.hynse.hynsebackup.Mode.BasicOptimizeMode;
 import xyz.hynse.hynsebackup.Mode.ParallelMode;
 import xyz.hynse.hynsebackup.Mode.ParallelOptimizeMode;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
@@ -23,7 +22,7 @@ public class BackupManager {
     private final BasicMode basic;
     private final ParallelMode parallel;
     private final ParallelOptimizeMode parallelOptimize;
-    private final AdvancedMode advanced;
+    private final BasicOptimizeMode basicOptimize;
     private final DisplayUtil displayUtil;
     private final MiscUtil miscUtil;
     public MiscUtil getMiscUtil() {
@@ -37,7 +36,7 @@ public class BackupManager {
         this.basic = new BasicMode(this, displayUtil);
         this.parallel = new ParallelMode(this, displayUtil);
         this.parallelOptimize = new ParallelOptimizeMode(this, displayUtil);
-        this.advanced = new AdvancedMode(this, displayUtil);
+        this.basicOptimize = new BasicOptimizeMode(this, displayUtil);
         this.miscUtil = new MiscUtil(this, backupConfig, plugin);
 
         if (backupConfig.isAutoEnabled()) {
@@ -47,10 +46,10 @@ public class BackupManager {
         if (backupConfig.getCompressionMode().equalsIgnoreCase("parallel")) {
             plugin.getLogger().warning("⚠ WARNING: parallel compression mode is experimental and may cause severe performance issues. Use with caution!");
         }
-        if (backupConfig.getCompressionMode().equalsIgnoreCase("experimental1")) {
+        if (backupConfig.getCompressionMode().equalsIgnoreCase("basicOptimize")) {
             plugin.getLogger().warning("⚠ WARNING: advanced compression mode is experimental and may cause severe performance issues. Use with caution!");
         }
-        if (backupConfig.getCompressionMode().equalsIgnoreCase("experimental2")) {
+        if (backupConfig.getCompressionMode().equalsIgnoreCase("parallelOptimize")) {
             plugin.getLogger().warning("⚠ WARNING: parallelOptimize compression mode is experimental and may cause severe performance issues. Use with caution!");
         }
     }
@@ -78,9 +77,9 @@ public class BackupManager {
                 parallel.compressWorldParallel(worldFolder, backupFile);
             } else if (backupConfig.getCompressionMode().equalsIgnoreCase("basic")) {
                 basic.compressWorld(worldFolder, backupFile);
-            } else if (backupConfig.getCompressionMode().equalsIgnoreCase("experimental1")) {
-                advanced.compressWorld(worldFolder, backupFile);
-            } else if (backupConfig.getCompressionMode().equalsIgnoreCase("experimental2")) {
+            } else if (backupConfig.getCompressionMode().equalsIgnoreCase("basicOptimize")) {
+                basicOptimize.compressWorld(worldFolder, backupFile);
+            } else if (backupConfig.getCompressionMode().equalsIgnoreCase("parallelOptimize")) {
                 parallelOptimize.compressWorldParallel(worldFolder, backupFile);
             }
             plugin.getLogger().info("World backup successfully created: " + backupFile.getAbsolutePath());

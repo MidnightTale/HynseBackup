@@ -36,8 +36,7 @@ public class ParallelMode {
             public void run() {
                 try {
                     CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
-
-                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with Parallel mode - thread: " + backupManager.backupConfig.getParallelism());
+                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with "+ backupManager.backupConfig.getCompressionMode() +" Mode - thread: " + backupManager.backupConfig.getParallelism());
                     ForkJoinPool forkJoinPool = new ForkJoinPool(backupManager.backupConfig.getParallelism());
                     Map<String, byte[]> compressedFiles = new ConcurrentHashMap<>();
                     forkJoinPool.submit(() -> {
@@ -69,7 +68,7 @@ public class ParallelMode {
                             }
                         }
                     }
-                    sender.sendMessage("Compression of world [" + source.getName() + "] with Parallel mode completed - thread: " + backupManager.backupConfig.getParallelism());
+                    sender.sendMessage("Compression of world [" + source.getName() + "] with "+ backupManager.backupConfig.getCompressionMode() +" Mode - thread: " + backupManager.backupConfig.getParallelism());
                     displayUtil.finishBossBarProgress();
                 } catch (IOException e) {
                     e.printStackTrace();

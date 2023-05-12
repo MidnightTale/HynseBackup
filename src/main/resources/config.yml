@@ -18,9 +18,9 @@ max_backup:
 
 # Compression settings
 compression:
-  # Compression mode: "basic" or "parallel"
-  # Note: Parallel mode is experimental and may cause performance issues.
+  # Compression mode: "basic" or "parallel" or "parallelOptimize" or "basicOptimize"
+  # Note: basicOptimize/Parallel/parallelOptimize mode is experimental and may cause performance issues.
   # It increases the server's memory when using parallel mode.
   mode: basic
-  parallelism: 4 # Number of threads to use for parallel compression
+  parallelism: 4 # Number of threads to use for parallel/parallelOptimize compression
   bossbar: true
