@@ -140,6 +140,8 @@ public class BackupManager {
                     plugin.getLogger().info("Compression of world [" + source.getName() + "] with Parallel mode completed - thread: " + backupConfig.getParallelism());
                 } catch (IOException e) {
                     e.printStackTrace();
+                } finally {
+                    removeBossBar();
                 }
             }
         }.runTaskAsynchronously(plugin);
@@ -178,6 +180,8 @@ public class BackupManager {
                     plugin.getLogger().info("Compression of world [" + source.getName() + "] with Basic mode completed - thread: " + backupConfig.getParallelism());
                 } catch (IOException | InterruptedException | ExecutionException e) {
                     e.printStackTrace();
+                } finally {
+                    removeBossBar();
                 }
             }
         }.runTaskAsynchronously(plugin);
@@ -259,7 +263,11 @@ public class BackupManager {
             backupProgressBossBar.addPlayer(player);
         }
     }
-
+    private void removeBossBar() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            backupProgressBossBar.removePlayer(player);
+        }
+    }
     private long getFolderSize(Path folder) throws IOException {
         return Files.walk(folder)
                 .filter(p -> p.toFile().isFile())
