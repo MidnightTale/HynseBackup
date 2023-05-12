@@ -16,11 +16,13 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.zip.Deflater;
+import java.util.zip.DeflaterOutputStream;
 
 public class ParallelOptimizeMode {
 
     private final BackupManager backupManager;
     private final DisplayUtil displayUtil;
+    private static final int BUFFER_SIZE = 8192;
 
     public ParallelOptimizeMode(BackupManager backupManager, DisplayUtil displayUtil) {
         this.backupManager = backupManager;
@@ -37,7 +39,7 @@ public class ParallelOptimizeMode {
                 try {
                     CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
 
-                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with Parallel mode - thread: " + backupManager.backupConfig.getParallelism());
+                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with ParallelOptimize mode - thread: " + backupManager.backupConfig.getParallelism());
                     ForkJoinPool forkJoinPool = new ForkJoinPool(backupManager.backupConfig.getParallelism());
                     Map<String, byte[]> compressedFiles = new ConcurrentHashMap<>();
                     forkJoinPool.submit(() -> {
@@ -69,7 +71,7 @@ public class ParallelOptimizeMode {
                             }
                         }
                     }
-                    sender.sendMessage("Compression of world [" + source.getName() + "] with Parallel mode completed - thread: " + backupManager.backupConfig.getParallelism());
+                    sender.sendMessage("Compression of world [" + source.getName() + "] with ParallelOptimize mode completed - thread: " + backupManager.backupConfig.getParallelism());
                     displayUtil.finishBossBarProgress();
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -94,21 +96,17 @@ public class ParallelOptimizeMode {
     }
 
     private void compressFileToMap(File file, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
-        try (FileInputStream fis = new FileInputStream(file)) {
-            byte[] fileData = new byte[(int) file.length()];
-            fis.read(fileData);
+        try (FileInputStream fis = new FileInputStream(file);
+             ByteArrayOutputStream baos = new ByteArrayOutputStream();
+             DeflaterOutputStream dos = new DeflaterOutputStream(baos, new Deflater(Deflater.BEST_COMPRESSION))) {
 
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            Deflater deflater = new Deflater(Deflater.BEST_COMPRESSION);
-            deflater.setInput(fileData);
-            deflater.finish();
-
-            byte[] buffer = new byte[4096];
-            while (!deflater.finished()) {
-                int count = deflater.deflate(buffer);
-                baos.write(buffer, 0, count);
+            byte[] buffer = new byte[BUFFER_SIZE];
+            int bytesRead;
+            while ((bytesRead = fis.read(buffer)) != -1) {
+                dos.write(buffer, 0, bytesRead);
             }
-            deflater.end();
+
+            dos.finish();
             byte[] compressedData = baos.toByteArray();
 
             compressedFiles.put(entryPath, compressedData);
@@ -116,4 +114,7 @@ public class ParallelOptimizeMode {
             displayUtil.updateBossBarProgress((double) currentSize.get() / totalSize);
         }
     }
+
+
 }
+

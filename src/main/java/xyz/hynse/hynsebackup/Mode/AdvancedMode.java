@@ -14,6 +14,7 @@ import java.io.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicLong;
 
 public class AdvancedMode {
 
@@ -27,10 +28,11 @@ public class AdvancedMode {
 
     public void compressWorld(File source, File destination) throws IOException {
         long totalSize = backupManager.getMiscUtil().getFolderSize(source.toPath());
-        long[] currentSize = {0};
+        AtomicLong currentSize = new AtomicLong(0);
 
+        int numFiles = backupManager.getMiscUtil().getNumFiles(source.toPath());
         ExecutorService executor = Executors.newFixedThreadPool(backupManager.backupConfig.getParallelism());
-        CountDownLatch latch = new CountDownLatch((int) totalSize);
+        CountDownLatch latch = new CountDownLatch(numFiles);
 
         new BukkitRunnable() {
             @Override
@@ -66,7 +68,7 @@ public class AdvancedMode {
         }.runTaskAsynchronously(backupManager.plugin);
     }
 
-    private void compressDirectoryToTar(ExecutorService executor, CountDownLatch latch, File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) {
+    private void compressDirectoryToTar(ExecutorService executor, CountDownLatch latch, File source, String entryPath, TarArchiveOutputStream taos, long totalSize, AtomicLong currentSize) {
         for (File file : source.listFiles()) {
             String filePath = entryPath + file.getName();
             if (file.isDirectory()) {
@@ -92,7 +94,7 @@ public class AdvancedMode {
         }
     }
 
-    private void addFileToTar(File file, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
+    private void addFileToTar(File file, String entryPath, TarArchiveOutputStream taos, long totalSize, AtomicLong currentSize) throws IOException {
         TarArchiveEntry entry = new TarArchiveEntry(file, entryPath);
         taos.putArchiveEntry(entry);
 
@@ -101,10 +103,8 @@ public class AdvancedMode {
             byte[] buffer = new byte[4096];
             while ((bytesRead = fis.read(buffer)) != -1) {
                 taos.write(buffer, 0, bytesRead);
-                synchronized (currentSize) {
-                    currentSize[0] += bytesRead;
-                    displayUtil.updateBossBarProgress((double) currentSize[0] / totalSize);
-                }
+                currentSize.addAndGet(bytesRead);
+                displayUtil.updateBossBarProgress((double) currentSize.get() / totalSize);
             }
         } finally {
             taos.flush(); // Flush the TarArchiveOutputStream
