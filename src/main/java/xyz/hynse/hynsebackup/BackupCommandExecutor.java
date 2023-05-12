@@ -64,7 +64,7 @@ public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
                     long totalSize = 0;
                     for (File worldFolder : worldFolders) {
                         sender.sendMessage("  " + worldFolder.getName());
-                        File[] backupFiles = worldFolder.listFiles(file -> file.getName().endsWith(".tar.zst"));
+                        File[] backupFiles = worldFolder.listFiles(file -> file.getName().endsWith(".tar.zst") || file.getName().endsWith(".zip"));
                         if (backupFiles != null) {
                             Arrays.sort(backupFiles, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
                             for (File backupFile : backupFiles) {
@@ -102,6 +102,21 @@ public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
             return whitelistedWorlds.stream()
                     .filter(world -> world.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
+        } else if (args.length == 2 && args[0].equalsIgnoreCase("list")) {
+            if (!sender.hasPermission("hynsebackup.list")) {
+                return new ArrayList<>();
+            }
+            File backupFolder = new File(backupManager.plugin.getDataFolder(), "backup");
+            File[] worldFolders = backupFolder.listFiles(File::isDirectory);
+
+            if (worldFolders != null) {
+                List<String> worldNames = Arrays.stream(worldFolders)
+                        .map(File::getName)
+                        .collect(Collectors.toList());
+                return worldNames.stream()
+                        .filter(world -> world.startsWith(args[1].toLowerCase()))
+                        .collect(Collectors.toList());
+            }
         }
         return new ArrayList<>();
     }

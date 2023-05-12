@@ -34,6 +34,7 @@
                     .mapToLong(p -> p.toFile().length())
                     .sum();
         }
+
         public static String humanReadableByteCountBin(long bytes) {
             long absB = bytes == Long.MIN_VALUE ? Long.MAX_VALUE : Math.abs(bytes);
             if (absB < 1024) {
@@ -69,9 +70,12 @@
             int maxBackupCount = backupConfig.getMaxBackupCount();
 
             if (maxBackupEnabled) {
-                File[] backupFiles = backupWorldFolder.listFiles(file -> file.getName().endsWith(".tar.zst"));
+                File[] backupFiles = backupWorldFolder.listFiles(file ->
+                        file.getName().endsWith(".tar.zst") || file.getName().endsWith(".zip"));
+
                 if (backupFiles != null && backupFiles.length > maxBackupCount) {
                     Arrays.sort(backupFiles, Comparator.comparingLong(File::lastModified));
+
                     for (int i = 0; i < backupFiles.length - maxBackupCount; i++) {
                         if (backupFiles[i].delete()) {
                             plugin.getLogger().info("Deleted old backup: " + backupFiles[i].getAbsolutePath());

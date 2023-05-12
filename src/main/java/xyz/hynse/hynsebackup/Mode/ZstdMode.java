@@ -51,7 +51,7 @@ public class ZstdMode {
                 timer.stop();
 
                 long compressedSize = destination.length();
-                String endMessage = "Compression of world [" + source.getName() + "] with Zstd Experimental Mode completed in " + timer.getElapsedTime();
+                String endMessage = "Compression of world [" + source.getName() + "] with Zstd Mode completed in " + timer.getElapsedTime();
                 String sizeMessage = "Size of compressed world: " + MiscUtil.humanReadableByteCountBin(compressedSize);
                 if (sender != null) {
                     sender.sendMessage(endMessage);
