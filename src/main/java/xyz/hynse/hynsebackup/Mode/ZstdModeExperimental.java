@@ -13,6 +13,7 @@ import xyz.hynse.hynsebackup.Util.TimerUtil;
 import java.io.*;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.RecursiveAction;
+import java.util.concurrent.TimeUnit;
 
 public class ZstdModeExperimental {
 
@@ -72,6 +73,12 @@ public class ZstdModeExperimental {
             } finally {
                 displayUtil.removeBossBar();
                 forkJoinPool.shutdown();
+                try {
+                    forkJoinPool.awaitTermination(1, TimeUnit.MICROSECONDS);
+                } catch (InterruptedException e) {
+                    backupManager.plugin.getLogger().severe("Failed to wait for the termination of the ForkJoinPool: " + e.getMessage());
+                }
+                forkJoinPool.getQueuedTaskCount();
             }
         });
     }
