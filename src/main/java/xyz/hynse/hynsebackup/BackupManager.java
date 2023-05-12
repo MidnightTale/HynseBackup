@@ -8,6 +8,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BossBar;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -105,7 +106,9 @@ public class BackupManager {
             @Override
             public void run() {
                 try {
-                    plugin.getLogger().info("Starting compression of world [" + source.getName() + "] with Parallel mode - thread: " + backupConfig.getParallelism());
+                    CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
+
+                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with Parallel mode - thread: " + backupConfig.getParallelism());
                     ForkJoinPool forkJoinPool = new ForkJoinPool(backupConfig.getParallelism());
                     Map<String, byte[]> compressedFiles = new ConcurrentHashMap<>();
                     forkJoinPool.submit(() -> {
@@ -137,7 +140,8 @@ public class BackupManager {
                             }
                         }
                     }
-                    plugin.getLogger().info("Compression of world [" + source.getName() + "] with Parallel mode completed - thread: " + backupConfig.getParallelism());
+                    sender.sendMessage("Compression of world [" + source.getName() + "] with Parallel mode completed - thread: " + backupConfig.getParallelism());
+                    FinishBossBarProgress();
                 } catch (IOException e) {
                     e.printStackTrace();
                 } finally {
@@ -146,6 +150,7 @@ public class BackupManager {
             }
         }.runTaskAsynchronously(plugin);
     }
+
 
     private void compressWorld(File source, File destination) throws IOException {
         long totalSize = getFolderSize(source.toPath());
@@ -157,7 +162,10 @@ public class BackupManager {
                 try (FileOutputStream fos = new FileOutputStream(destination);
                      BufferedOutputStream bos = new BufferedOutputStream(fos);
                      ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
-                    plugin.getLogger().info("Starting compression of world [" + source.getName() + "] with Basic mode - thread: " + backupConfig.getParallelism());
+
+                    CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
+
+                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with Basic mode - thread: " + backupConfig.getParallelism());
 
                     try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
                         taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
@@ -177,7 +185,8 @@ public class BackupManager {
                             future.get();
                         }
                     }
-                    plugin.getLogger().info("Compression of world [" + source.getName() + "] with Basic mode completed - thread: " + backupConfig.getParallelism());
+                    sender.sendMessage("Compression of world [" + source.getName() + "] with Basic mode completed - thread: " + backupConfig.getParallelism());
+                    FinishBossBarProgress();
                 } catch (IOException | InterruptedException | ExecutionException e) {
                     e.printStackTrace();
                 } finally {
@@ -186,6 +195,7 @@ public class BackupManager {
             }
         }.runTaskAsynchronously(plugin);
     }
+
 
     private void compressDirectoryToMap(File source, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
         if (source.listFiles() != null) {
@@ -259,7 +269,16 @@ public class BackupManager {
         String progressPercent = String.format("%.1f", progress * 100);
         backupProgressBossBar.setTitle("Backing up world: " + currentWorld.getName() + " (" + progressPercent + "%)");
         backupProgressBossBar.setProgress(progress);
+        boolean bossBarEnabled = backupConfig.isBossBarEnabled();
         for (Player player : Bukkit.getOnlinePlayers()) {
+            if (bossBarEnabled) {
+                backupProgressBossBar.addPlayer(player);
+            }
+        }
+    }
+    private void FinishBossBarProgress() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            backupProgressBossBar.setTitle("Backup world: " + currentWorld.getName() + "success.");
             backupProgressBossBar.addPlayer(player);
         }
     }
