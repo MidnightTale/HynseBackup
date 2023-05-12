@@ -167,17 +167,19 @@ public class BackupManager {
 
                     sender.sendMessage("Starting compression of world [" + source.getName() + "] with Basic mode - thread: " + backupConfig.getParallelism());
 
-                    ExecutorService executorService = Executors.newFixedThreadPool(backupConfig.getParallelism());
-                    List<Future<Void>> futures = new ArrayList<>();
-                    compressDirectoryToTar(source, source.getName() + File.separator, zos, totalSize, currentSize, executorService, futures);
+                    try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
+                        taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
+                        taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
 
-                    for (Future<Void> future : futures) {
-                        future.get(); // Wait for all compression tasks to complete
+                        TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
+                        taos.putArchiveEntry(worldEntry);
+                        taos.closeArchiveEntry();
+
+                        compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
                     }
-
                     sender.sendMessage("Compression of world [" + source.getName() + "] with Basic mode completed - thread: " + backupConfig.getParallelism());
                     FinishBossBarProgress();
-                } catch (IOException | InterruptedException | ExecutionException e) {
+                } catch (IOException e) {
                     e.printStackTrace();
                 } finally {
                     removeBossBar();
@@ -185,7 +187,6 @@ public class BackupManager {
             }
         }.runTaskAsynchronously(plugin);
     }
-
 
 
     private void compressDirectoryToMap(File source, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
@@ -224,27 +225,18 @@ public class BackupManager {
             updateBossBarProgress((double) currentSize.get() / totalSize);
         }
     }
-    private void compressDirectoryToTar(File source, String entryPath, OutputStream outputStream, long totalSize, long[] currentSize, ExecutorService executorService, List<Future<Void>> futures) throws IOException {
-        try (TarArchiveOutputStream taos = new TarArchiveOutputStream(new BufferedOutputStream(outputStream))) {
-            taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
-            taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
-
-            for (File file : source.listFiles()) {
-                String filePath = entryPath + file.getName();
-                if (file.isDirectory()) {
-                    TarArchiveEntry dirEntry = new TarArchiveEntry(file, filePath + "/");
-                    taos.putArchiveEntry(dirEntry);
-                    taos.closeArchiveEntry();
-                    compressDirectoryToTar(file, filePath + File.separator, outputStream, totalSize, currentSize, executorService, futures);
-                } else {
-                    futures.add(executorService.submit(() -> {
-                        addFileToTar(file, filePath, taos, totalSize, currentSize);
-                        return null;
-                    }));
-                }
+    private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
+        for (File file : source.listFiles()) {
+            String filePath = entryPath + file.getName();
+            if (file.isDirectory()) {
+                TarArchiveEntry dirEntry = new TarArchiveEntry(file, filePath + "/");
+                taos.putArchiveEntry(dirEntry);
+                taos.closeArchiveEntry();
+                compressDirectoryToTar(file, filePath + File.separator, taos, totalSize, currentSize);
+            } else {
+                addFileToTar(file, filePath, taos, totalSize, currentSize);
             }
         }
-        outputStream.close();
     }
 
     private void addFileToTar(File file, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
