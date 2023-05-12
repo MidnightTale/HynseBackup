@@ -55,7 +55,7 @@ public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
                 File[] worldFolders = backupFolder.listFiles(File::isDirectory);
 
                 if (worldFolders != null) {
-                    sender.sendMessage("Hynse Backup -----------");
+                    sender.sendMessage("Hynse Backup -------------------");
                     long totalSize = 0;
                     for (File worldFolder : worldFolders) {
                         sender.sendMessage("  " + worldFolder.getName());

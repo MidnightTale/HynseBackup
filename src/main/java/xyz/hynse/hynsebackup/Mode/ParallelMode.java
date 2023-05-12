@@ -101,22 +101,27 @@ public class ParallelMode {
         executorService.execute(() -> {
             try {
                 TarArchiveEntry entry = new TarArchiveEntry(file, entryPath);
-                taos.putArchiveEntry(entry);
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
                 try (FileInputStream fis = new FileInputStream(file)) {
                     int bytesRead;
                     byte[] buffer = new byte[4096];
                     while ((bytesRead = fis.read(buffer)) != -1) {
-                        taos.write(buffer, 0, bytesRead);
+                        baos.write(buffer, 0, bytesRead);
                         synchronized (currentSize) {
                             currentSize[0] += bytesRead;
                             displayUtil.updateBossBarProgress((double) currentSize[0] / totalSize);
                         }
                     }
                 }
-                taos.closeArchiveEntry();
+                synchronized (taos) {
+                    taos.putArchiveEntry(entry);
+                    taos.write(baos.toByteArray());
+                    taos.closeArchiveEntry();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             }
         });
     }
+
 }
