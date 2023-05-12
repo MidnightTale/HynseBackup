@@ -1,7 +1,6 @@
 package xyz.hynse.hynsebackup;
 
 import org.bukkit.Bukkit;
-import org.bukkit.World;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
