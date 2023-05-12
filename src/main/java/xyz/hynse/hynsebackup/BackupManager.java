@@ -4,6 +4,7 @@ import org.bukkit.World;
 import org.bukkit.boss.BossBar;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
+import xyz.hynse.hynsebackup.Mode.AdvancedMode;
 import xyz.hynse.hynsebackup.Mode.BasicMode;
 import xyz.hynse.hynsebackup.Mode.ParallelMode;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
@@ -19,6 +20,7 @@ public class BackupManager {
     public final BackupConfig backupConfig;
     private final BasicMode basic;
     private final ParallelMode parallel;
+    private final AdvancedMode advanced;
     private final DisplayUtil displayUtil;
     private final MiscUtil miscUtil;
     public MiscUtil getMiscUtil() {
@@ -31,6 +33,7 @@ public class BackupManager {
         this.displayUtil = new DisplayUtil(backupProgressBossBar, backupConfig);
         this.basic = new BasicMode(this, displayUtil);
         this.parallel = new ParallelMode(this, displayUtil);
+        this.advanced = new AdvancedMode(this, displayUtil);
         this.miscUtil = new MiscUtil(this, backupConfig, plugin);
 
         if (backupConfig.isAutoEnabled()) {
@@ -63,8 +66,10 @@ public class BackupManager {
         try {
             if (backupConfig.getCompressionMode().equalsIgnoreCase("parallel")) {
                 parallel.compressWorldParallel(worldFolder, backupFile);
-            } else {
+            } else if (backupConfig.getCompressionMode().equalsIgnoreCase("basic")) {
                 basic.compressWorld(worldFolder, backupFile);
+            } else if (backupConfig.getCompressionMode().equalsIgnoreCase("experimental")) {
+                advanced.compressWorld(worldFolder, backupFile);
             }
             plugin.getLogger().info("World backup successfully created: " + backupFile.getAbsolutePath());
             miscUtil.deleteOldBackups(backupWorldFolder);
