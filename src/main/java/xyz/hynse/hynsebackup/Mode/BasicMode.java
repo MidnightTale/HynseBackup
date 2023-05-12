@@ -1,15 +1,13 @@
 package xyz.hynse.hynsebackup.Mode;
 
-import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdOutputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
-import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
-import org.bukkit.scheduler.BukkitRunnable;
 import xyz.hynse.hynsebackup.BackupManager;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
 import xyz.hynse.hynsebackup.Util.SchedulerUtil;
+import xyz.hynse.hynsebackup.Util.TimerUtil;
 
 import java.io.*;
 
@@ -17,36 +15,36 @@ public class BasicMode {
 
     private final BackupManager backupManager;
     private final DisplayUtil displayUtil;
-
+    TimerUtil timer = new TimerUtil();
     public BasicMode(BackupManager backupManager, DisplayUtil displayUtil) {
         this.backupManager = backupManager;
         this.displayUtil = displayUtil;
     }
 
-    public void compressWorld(File source, File destination) throws IOException {
+    public void compressWorld(File source, File destination, CommandSender sender) throws IOException {
         long totalSize = backupManager.getMiscUtil().getFolderSize(source.toPath());
         long[] currentSize = {0};
 
         SchedulerUtil.runAsyncNowScheduler(backupManager.plugin, () -> {
             try (FileOutputStream fos = new FileOutputStream(destination);
                  BufferedOutputStream bos = new BufferedOutputStream(fos);
-                 ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
-
-                CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
+                 ZstdOutputStream zos = new ZstdOutputStream(bos, backupManager.backupConfig.getCompressionLevel())) {
 
                 sender.sendMessage("Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode");
+                timer.start();
 
                 try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
                     taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
                     taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
 
-                    TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
+                    TarArchiveEntry worldEntry = new TarArchiveEntry(source, source.getName() + "/");
                     taos.putArchiveEntry(worldEntry);
                     taos.closeArchiveEntry();
 
                     compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
                 }
-                sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode");
+                timer.stop();
+                sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode completed in " + timer.getElapsedTime());
                 displayUtil.finishBossBarProgress();
             } catch (IOException e) {
                 e.printStackTrace();
@@ -79,9 +77,11 @@ public class BasicMode {
             byte[] buffer = new byte[4096];
             while ((bytesRead = fis.read(buffer)) != -1) {
                 taos.write(buffer, 0, bytesRead);
+                currentSize[0] += bytesRead;
                 displayUtil.updateBossBarProgress((double) currentSize[0] / totalSize);
             }
         }
         taos.closeArchiveEntry();
     }
+
 }

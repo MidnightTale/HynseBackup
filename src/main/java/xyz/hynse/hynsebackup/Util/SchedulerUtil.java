@@ -1,6 +1,5 @@
 package xyz.hynse.hynsebackup.Util;
 
-import io.papermc.paper.threadedregions.scheduler.AsyncScheduler;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.Plugin;
 

@@ -35,7 +35,7 @@ public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
                     String worldName = args[1];
                     World world = Bukkit.getWorld(worldName);
                     if (world != null) {
-                        backupManager.backupWorld(world);
+                        backupManager.backupWorld(world, sender);
                         sender.sendMessage("Started backup for world: " + worldName);
                     } else {
                         sender.sendMessage("World not found: " + worldName);
@@ -54,7 +54,7 @@ public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
                 File[] worldFolders = backupFolder.listFiles(File::isDirectory);
 
                 if (worldFolders != null) {
-                    sender.sendMessage("Hynse Backup -----------");
+                    sender.sendMessage("Hynse Backup ------------");
                     for (File worldFolder : worldFolders) {
                         sender.sendMessage("  " + worldFolder.getName());
                         File[] backupFiles = worldFolder.listFiles(file -> file.getName().endsWith(".tar.zst"));

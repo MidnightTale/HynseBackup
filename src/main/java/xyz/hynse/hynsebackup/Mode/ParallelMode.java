@@ -1,15 +1,14 @@
 package xyz.hynse.hynsebackup.Mode;
 
-import com.github.luben.zstd.Zstd;
 import com.github.luben.zstd.ZstdOutputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
-import org.bukkit.scheduler.BukkitRunnable;
 import xyz.hynse.hynsebackup.BackupManager;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
 import xyz.hynse.hynsebackup.Util.SchedulerUtil;
+import xyz.hynse.hynsebackup.Util.TimerUtil;
 
 import java.io.*;
 import java.util.Map;
@@ -22,6 +21,7 @@ public class ParallelMode {
 
     private final BackupManager backupManager;
     private final DisplayUtil displayUtil;
+    TimerUtil timer = new TimerUtil();
 
     public ParallelMode(BackupManager backupManager, DisplayUtil displayUtil) {
         this.backupManager = backupManager;
@@ -36,6 +36,7 @@ public class ParallelMode {
             try {
                 CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
                 sender.sendMessage("Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() + " Mode - thread: " + backupManager.backupConfig.getParallelism());
+                timer.start();
                 ForkJoinPool forkJoinPool = new ForkJoinPool(backupManager.backupConfig.getParallelism());
                 Map<String, byte[]> compressedFiles = new ConcurrentHashMap<>();
                 forkJoinPool.submit(() -> {
@@ -48,7 +49,7 @@ public class ParallelMode {
 
                 try (FileOutputStream fos = new FileOutputStream(destination);
                      BufferedOutputStream bos = new BufferedOutputStream(fos);
-                     ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
+                     ZstdOutputStream zos = new ZstdOutputStream(bos, backupManager.backupConfig.getCompressionLevel())) {
 
                     try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
                         taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
@@ -67,7 +68,8 @@ public class ParallelMode {
                         }
                     }
                 }
-                sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() + " Mode - thread: " + backupManager.backupConfig.getParallelism());
+                timer.stop();
+                sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() + " Mode - thread: " + backupManager.backupConfig.getParallelism() +" completed in " + timer.getElapsedTime());
                 displayUtil.finishBossBarProgress();
             } catch (IOException e) {
                 e.printStackTrace();
