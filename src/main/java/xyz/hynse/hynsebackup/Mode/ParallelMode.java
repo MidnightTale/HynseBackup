@@ -11,20 +11,23 @@ import xyz.hynse.hynsebackup.Util.SchedulerUtil;
 import xyz.hynse.hynsebackup.Util.TimerUtil;
 
 import java.io.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.RecursiveAction;
 
 public class ParallelMode {
 
     private final BackupManager backupManager;
     private final DisplayUtil displayUtil;
-    private final ExecutorService executorService;
+    private final ForkJoinPool forkJoinPool;
     TimerUtil timer = new TimerUtil();
 
     public ParallelMode(BackupManager backupManager, DisplayUtil displayUtil, int parallelism) {
         this.backupManager = backupManager;
         this.displayUtil = displayUtil;
-        this.executorService = Executors.newFixedThreadPool(parallelism);
+        this.forkJoinPool = new ForkJoinPool(parallelism);
     }
 
     public void compressWorld(File source, File destination, CommandSender sender) throws IOException {
@@ -53,11 +56,9 @@ public class ParallelMode {
 
                     compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
                 }
-                executorService.shutdown();
+                forkJoinPool.shutdown();
                 try {
-                    while (!executorService.isTerminated()) {
-                        Thread.sleep(100);
-                    }
+                    forkJoinPool.awaitTermination(Long.MAX_VALUE, java.util.concurrent.TimeUnit.NANOSECONDS);
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
@@ -78,27 +79,65 @@ public class ParallelMode {
                 e.printStackTrace();
             } finally {
                 displayUtil.removeBossBar();
-                executorService.shutdown();
+                forkJoinPool.shutdown();
             }
         });
     }
 
-    private void compressDirectoryToTar(File source, String entryPath,TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
-        for (File file : source.listFiles()) {
-            String filePath = entryPath + file.getName();
-            if (file.isDirectory()) {
-                TarArchiveEntry dirEntry = new TarArchiveEntry(file, filePath + "/");
-                taos.putArchiveEntry(dirEntry);
-                taos.closeArchiveEntry();
-                compressDirectoryToTar(file, filePath + File.separator, taos, totalSize, currentSize);
+    private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
+        List<File> files = List.of(source.listFiles());
+        forkJoinPool.invoke(new CompressDirectoryAction(files, entryPath, taos, totalSize, currentSize));
+    }
+
+    private class CompressDirectoryAction extends RecursiveAction {
+        private final List<File> files;
+        private final String entryPath;
+        private final TarArchiveOutputStream taos;
+        private final long totalSize;
+        private final long[] currentSize;
+
+        public CompressDirectoryAction(List<File> files, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) {
+            this.files = files;
+            this.entryPath = entryPath;
+            this.taos = taos;
+            this.totalSize = totalSize;
+            this.currentSize = currentSize;
+        }
+
+        @Override
+        protected void compute() {
+            if (files.size() <= 1) {
+                if (!files.isEmpty()) {
+                    File file = files.get(0);
+                    String filePath = entryPath + file.getName();
+                    if (file.isDirectory()) {
+                        try {
+                            TarArchiveEntry dirEntry = new TarArchiveEntry(file, filePath + "/");
+                            taos.putArchiveEntry(dirEntry);
+                            taos.closeArchiveEntry();
+                            compressDirectoryToTar(file, filePath + File.separator, taos, totalSize, currentSize);
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                        }
+                    } else {
+                        addFileToTar(file, filePath, taos, totalSize, currentSize);
+                    }
+                }
             } else {
-                addFileToTarParallel(file, filePath, taos, totalSize, currentSize);
+                int split = files.size() / 2;
+                List<File> leftFiles = files.subList(0, split);
+                List<File> rightFiles = files.subList(split, files.size());
+
+                CompressDirectoryAction leftAction = new CompressDirectoryAction(leftFiles, entryPath, taos, totalSize, currentSize);
+                CompressDirectoryAction rightAction = new CompressDirectoryAction(rightFiles, entryPath, taos, totalSize, currentSize);
+
+                invokeAll(leftAction, rightAction);
             }
         }
     }
 
-    private void addFileToTarParallel(File file, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) {
-        executorService.execute(() -> {
+    private void addFileToTar(File file, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) {
+        forkJoinPool.execute(() -> {
             try {
                 TarArchiveEntry entry = new TarArchiveEntry(file, entryPath);
                 ByteArrayOutputStream baos = new ByteArrayOutputStream();
@@ -123,5 +162,5 @@ public class ParallelMode {
             }
         });
     }
-
 }
+
