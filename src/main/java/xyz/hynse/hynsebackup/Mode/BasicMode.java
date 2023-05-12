@@ -6,6 +6,7 @@ import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.bukkit.command.CommandSender;
 import xyz.hynse.hynsebackup.BackupManager;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
+import xyz.hynse.hynsebackup.Util.MiscUtil;
 import xyz.hynse.hynsebackup.Util.SchedulerUtil;
 import xyz.hynse.hynsebackup.Util.TimerUtil;
 
@@ -29,9 +30,10 @@ public class BasicMode {
             try (FileOutputStream fos = new FileOutputStream(destination);
                  BufferedOutputStream bos = new BufferedOutputStream(fos);
                  ZstdOutputStream zos = new ZstdOutputStream(bos, backupManager.backupConfig.getCompressionLevel())) {
-
-                sender.sendMessage("Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode");
                 timer.start();
+                if (sender != null) {
+                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode");
+                }
 
                 try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
                     taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
@@ -44,8 +46,13 @@ public class BasicMode {
                     compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
                 }
                 timer.stop();
-                sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode completed in " + timer.getElapsedTime());
-                displayUtil.finishBossBarProgress();
+                if (sender != null) {
+                    sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode completed in " + timer.getElapsedTime());
+                    long compressedSize = destination.length();
+                    String humanReadableSize = MiscUtil.humanReadableByteCountBin(compressedSize);
+                    sender.sendMessage("Size of compressed world: " + humanReadableSize);
+                    displayUtil.finishBossBarProgress();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
@@ -53,6 +60,7 @@ public class BasicMode {
             }
         });
     }
+
 
     private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
         for (File file : source.listFiles()) {

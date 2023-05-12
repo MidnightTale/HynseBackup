@@ -56,12 +56,13 @@
             for (String worldName : whitelistWorlds) {
                 World world = Bukkit.getWorld(worldName);
                 if (world != null) {
-                    backupManager.backupWorld(world);
+                    backupManager.backupWorld(world, null);
                 } else {
                     plugin.getLogger().warning("World not found: " + worldName);
                 }
             }
         }
+
 
         public void deleteOldBackups(File backupWorldFolder) {
             boolean maxBackupEnabled = backupConfig.isMaxBackupEnabled();
