@@ -33,6 +33,11 @@ public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
         switch (args[0].toLowerCase()) {
             case "start":
                 if (args.length == 2) {
+                    if (!sender.hasPermission("hynsebackup.start")) {
+                        sender.sendMessage("You do not have permission to use this command.");
+                        return true;
+                    }
+
                     String worldName = args[1];
                     World world = Bukkit.getWorld(worldName);
                     if (world != null) {
@@ -83,14 +88,17 @@ public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
 
         return true;
     }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
             List<String> subcommands = Arrays.asList("start", "list");
-            return subcommands.stream()
-                    .filter(subcommand -> subcommand.startsWith(args[0].toLowerCase()))
+            return subcommands.stream().filter(subcommand -> subcommand.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         } else if (args.length == 2 && args[0].equalsIgnoreCase("start")) {
+            if (!sender.hasPermission("hynsebackup.start")) {
+                return new ArrayList<>();
+            }
             return whitelistedWorlds.stream()
                     .filter(world -> world.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());
