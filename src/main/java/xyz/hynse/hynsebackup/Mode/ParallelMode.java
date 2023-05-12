@@ -36,8 +36,11 @@ public class ParallelMode {
                  BufferedOutputStream bos = new BufferedOutputStream(fos);
                  ZstdOutputStream zos = new ZstdOutputStream(bos, backupManager.backupConfig.getCompressionLevel())) {
                 timer.start();
+                String startMessage = "Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode";
                 if (sender != null) {
-                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode");
+                    sender.sendMessage(startMessage);
+                } else {
+                    backupManager.plugin.getLogger().info(startMessage);
                 }
 
                 try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
@@ -50,13 +53,26 @@ public class ParallelMode {
 
                     compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
                 }
+                executorService.shutdown();
+                try {
+                    while (!executorService.isTerminated()) {
+                        Thread.sleep(100);
+                    }
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+
                 timer.stop();
+
+                long compressedSize = destination.length();
+                String endMessage = "Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode completed in " + timer.getElapsedTime();
+                String sizeMessage = "Size of compressed world: " + MiscUtil.humanReadableByteCountBin(compressedSize);
                 if (sender != null) {
-                    sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode completed in " + timer.getElapsedTime());
-                    long compressedSize = destination.length();
-                    String humanReadableSize = MiscUtil.humanReadableByteCountBin(compressedSize);
-                    sender.sendMessage("Size of compressed world: " + humanReadableSize);
-                    displayUtil.finishBossBarProgress();
+                    sender.sendMessage(endMessage);
+                    sender.sendMessage(sizeMessage);
+                } else {
+                    backupManager.plugin.getLogger().info(endMessage);
+                    backupManager.plugin.getLogger().info(sizeMessage);
                 }
             } catch (IOException e) {
                 e.printStackTrace();
