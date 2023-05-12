@@ -1,26 +1,38 @@
-# Enable or disable automatic backup
 auto:
+  # Enable automatic backups
   enabled: true
-  # Interval between automatic backups in ticks (1 second = 20 ticks)
+  # Backup interval in ticks (1 second = 20 ticks)
   interval: 72000
-  delay: 1
+  # Delay before the first backup after server start, in ticks
+  delay: 10
 
-# Whitelist worlds to backup
 whitelist_world:
+  # List of worlds to be included in backups
   - world
   - world_nether
   - world_the_end
 
-# Maximum number of backups to store
 max_backup:
+  # Enable limiting the number of backups
   enabled: true
+  # Maximum number of backups to keep
   count: 3
 
-# Compression settings
 compression:
-  # Compression mode: "basic" or "parallel" or "parallelOptimize" or "basicOptimize"
-  # Note: basicOptimize/Parallel/parallelOptimize mode is experimental and may cause performance issues.
-  # It increases the server's memory when using parallel mode.
-  mode: basic
-  parallelism: 4 # Number of threads to use for parallel/parallelOptimize compression
+  # Compression mode: zip, zstd, zstd_experimental
+  mode: zstd
+
+  zstd:
+    # Zstd compression level (1-22)
+    level: 3
+    # Parallelism level for zstd_experimental compression
+    # Note: zstd_experimental mode is experimental and may cause performance issues.
+    # It increases the server's memory when using zstd_experimental mode.
+    parallelism: 4
+
+  zip:
+    # Zip compression level ((-1)-9)
+    level: -1
+
+  # Enable progress display using a boss bar
   bossbar: true

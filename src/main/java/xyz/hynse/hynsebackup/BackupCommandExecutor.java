@@ -7,6 +7,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.command.TabCompleter;
 import org.bukkit.configuration.file.FileConfiguration;
+import xyz.hynse.hynsebackup.Util.MiscUtil;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -32,10 +33,15 @@ public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
         switch (args[0].toLowerCase()) {
             case "start":
                 if (args.length == 2) {
+                    if (!sender.hasPermission("hynsebackup.start")) {
+                        sender.sendMessage("You do not have permission to use this command.");
+                        return true;
+                    }
+
                     String worldName = args[1];
                     World world = Bukkit.getWorld(worldName);
                     if (world != null) {
-                        backupManager.backupWorld(world);
+                        backupManager.backupWorld(world, sender);
                         sender.sendMessage("Started backup for world: " + worldName);
                     } else {
                         sender.sendMessage("World not found: " + worldName);
@@ -54,17 +60,23 @@ public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
                 File[] worldFolders = backupFolder.listFiles(File::isDirectory);
 
                 if (worldFolders != null) {
-                    sender.sendMessage("Hynse Backup -----------");
+                    sender.sendMessage("Hynse Backup -------------------");
+                    long totalSize = 0;
                     for (File worldFolder : worldFolders) {
                         sender.sendMessage("  " + worldFolder.getName());
                         File[] backupFiles = worldFolder.listFiles(file -> file.getName().endsWith(".tar.zst"));
                         if (backupFiles != null) {
                             Arrays.sort(backupFiles, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
                             for (File backupFile : backupFiles) {
-                                sender.sendMessage("     -  " + backupFile.getName());
+                                long fileSize = backupFile.length();
+                                totalSize += fileSize;
+                                String humanReadableSize = MiscUtil.humanReadableByteCountBin(fileSize);
+                                sender.sendMessage("     -  " + backupFile.getName() + " (" + humanReadableSize + ")");
                             }
                         }
                     }
+                    String totalHumanReadableSize = MiscUtil.humanReadableByteCountBin(totalSize);
+                    sender.sendMessage("Total size: " + totalHumanReadableSize);
                     sender.sendMessage("--------------------------------");
                 } else {
                     sender.sendMessage("No backups found.");
@@ -76,14 +88,17 @@ public class BackupCommandExecutor implements CommandExecutor, TabCompleter {
 
         return true;
     }
+
     @Override
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         if (args.length == 1) {
             List<String> subcommands = Arrays.asList("start", "list");
-            return subcommands.stream()
-                    .filter(subcommand -> subcommand.startsWith(args[0].toLowerCase()))
+            return subcommands.stream().filter(subcommand -> subcommand.startsWith(args[0].toLowerCase()))
                     .collect(Collectors.toList());
         } else if (args.length == 2 && args[0].equalsIgnoreCase("start")) {
+            if (!sender.hasPermission("hynsebackup.start")) {
+                return new ArrayList<>();
+            }
             return whitelistedWorlds.stream()
                     .filter(world -> world.startsWith(args[1].toLowerCase()))
                     .collect(Collectors.toList());

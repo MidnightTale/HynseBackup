@@ -9,9 +9,11 @@ public class BackupConfig {
     private int autoDelayInterval;
     private boolean maxBackupEnabled;
     private int maxBackupCount;
-    private String compressionMode;
     private int parallelism;
-    private boolean bossBarEnabled; // New field
+    private boolean bossBarEnabled;
+    private String compressionMode;
+    private int zstdLevel;
+    private int zipLevel;
 
     public BackupConfig(FileConfiguration config) {
         loadSettings(config);
@@ -22,12 +24,14 @@ public class BackupConfig {
         if (autoEnabled) {
             autoInterval = config.getInt("auto.interval");
             autoDelayInterval = config.getInt("auto.delay");
-            compressionMode = config.getString("compression.mode");
         }
         maxBackupEnabled = config.getBoolean("max_backup.enabled");
         maxBackupCount = config.getInt("max_backup.count");
-        parallelism = config.getInt("compression.parallelism", Runtime.getRuntime().availableProcessors());
+        parallelism = config.getInt("compression.zstd.parallelism", Runtime.getRuntime().availableProcessors());
         bossBarEnabled = config.getBoolean("compression.bossbar");
+        compressionMode = config.getString("compression.mode");
+        zstdLevel = config.getInt("compression.zstd.level");
+        zipLevel = config.getInt("compression.zip.level");
     }
 
     public boolean isAutoEnabled() {
@@ -50,15 +54,23 @@ public class BackupConfig {
         return maxBackupCount;
     }
 
-    public String getCompressionMode() {
-        return compressionMode;
-    }
-
     public int getParallelism() {
         return parallelism;
     }
 
+    public String getCompressionMode() {
+        return compressionMode;
+    }
+
     public boolean isBossBarEnabled() {
         return bossBarEnabled;
+    }
+
+    public int getZstdLevel() {
+        return zstdLevel;
+    }
+
+    public int getZipLevel() {
+        return zipLevel;
     }
 }
