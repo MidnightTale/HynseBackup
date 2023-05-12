@@ -225,7 +225,7 @@ public class BackupManager {
         }
     }
     private void compressDirectoryToTar(File source, String entryPath, OutputStream outputStream, long totalSize, long[] currentSize, ExecutorService executorService, List<Future<Void>> futures) throws IOException {
-        try (TarArchiveOutputStream taos = new TarArchiveOutputStream(outputStream)) {
+        try (TarArchiveOutputStream taos = new TarArchiveOutputStream(new BufferedOutputStream(outputStream))) {
             taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
             taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
 
@@ -244,9 +244,8 @@ public class BackupManager {
                 }
             }
         }
+        outputStream.close();
     }
-
-
 
     private void addFileToTar(File file, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
         TarArchiveEntry entry = new TarArchiveEntry(file, entryPath);
