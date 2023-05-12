@@ -2,8 +2,18 @@ name: HynseBackup
 version: '${version}'
 main: xyz.hynse.hynsebackup.HynseBackup
 api-version: 1.19
+author: MidnightTale_
+description: easy auto backup for minecraft server.
+website: https://hynse.xyz
 commands:
   backup:
     description: Start a backup for a specified world
     usage: /<command> [start/list] <world>
+permissions:
+  hynsebackup.start:
+    description: Allows the player to start a backup
+    default: op
+  hynsebackup.list:
+    description: Allows the player to list backups
+    default: op
 folia-supported: true

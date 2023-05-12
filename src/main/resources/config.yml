@@ -1,10 +1,10 @@
 auto:
   # Enable automatic backups
   enabled: true
-  # Backup interval in ticks (1 second = 20 ticks)
+  # Backup interval in seconds (72000 seconds = 20 hours)
   interval: 72000
-  # Delay before the first backup after server start, in ticks
-  delay: 10
+  # Delay before the first backup after server start, in seconds
+  delay: 60
 
 whitelist_world:
   # List of worlds to be included in backups
