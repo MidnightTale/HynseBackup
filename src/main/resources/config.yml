@@ -1,44 +1,45 @@
 # Automatic backup settings
 auto:
-  # Enable or disable automatic backup. If 'true', backups will be automatically created based on the 'interval' setting.
+  # Enable or disable automatic backup.
+  # If 'true', backups will be automatically created based on the 'interval' setting.
   enabled: true
 
-  # Interval: This determines how often automatic backups are created, in seconds.
-  # An interval of 72000 seconds equals 20 hours.
+  # Interval: This determines the frequency of automatic backups, specified in seconds.
+  # For example, an interval of 72000 seconds is equivalent to 20 hours.
   interval: 72000
 
-  # Delay: The delay in seconds before the first automatic backup is created when the server starts.
-  # A delay of 1 second means the first backup will be created 1 second after the server starts.
+  # Delay: This sets the delay (in seconds) for the first automatic backup to be created when the server starts.
+  # For instance, a delay of 1 second will result in the first backup being created 1 second after the server starts.
   delay: 10
 
-# Whitelist of worlds to backup. Only the worlds listed here will be backed up.
-# Each world is represented by its name as a string. Add or remove world names as needed.
+# List of worlds to backup. Only the worlds mentioned here will be backed up.
+# Each world is identified by its name as a string. Add or remove world names as per your requirements.
 whitelist_world:
   - world
   - world_nether
   - world_the_end
 
-# Maximum number of backups to store
+# Maximum number of backups to retain
 max_backup:
   enabled: true
   count: 3
 
 compression:
-  # Compression mode: "basic", "parallel", "parallelOptimize", or "basicOptimize"
-  # Note: "basicOptimize", "Parallel", and "parallelOptimize" modes are experimental and may cause performance issues.
-  # These modes may increase the server's memory usage when compressing.
-  mode: basicOptimize
+  # Compression mode: Options are "basic"or "parallel"
+  # Note: "Parallel" modes are experimental and could potentially cause performance issues.
+  # These modes may increase the server's memory usage during compression.
+  mode: basic
 
-  # Compression level: A value from 1 to 22 that determines the compression level used by the Zstd algorithm.
-  # A lower value (e.g., 1) results in faster compression times but a lower compression ratio.
-  # A higher value (e.g., 22) results in slower compression times but a higher compression ratio.
-  # You may need to adjust this setting based on your server's hardware capabilities and your specific needs.
+  # Compression level: This is a value ranging from 1 to 22, which sets the compression level used by the Zstd algorithm.
+  # A lower value (like 1) results in quicker compression times but a lower compression ratio.
+  # A higher value (like 22) leads to slower compression times but a higher compression ratio.
+  # This setting might need adjustment depending on your server's hardware capabilities and your specific needs.
   level: 3
 
-  # Parallelism: Number of threads to use for "parallel" and "parallelOptimize" compression modes.
-  # Increasing this value may improve compression speed on systems with multiple cores,
-  # but will also increase memory usage. Adjust according to your server's capabilities.
+  # Parallelism: This sets the number of threads used for "parallel" compression modes.
+  # Increasing this value might enhance compression speed on multi-core systems,
+  # but it will also elevate memory usage. Adjust this value based on your server's capabilities.
   parallelism: 4
 
-  # Bossbar: Determines whether a progress bar is shown during compression. Set to 'true' to enable, 'false' to disable.
+  # Bossbar: This setting decides whether a progress bar is displayed during compression. Set to 'true' to enable, 'false' to disable.
   bossbar: true

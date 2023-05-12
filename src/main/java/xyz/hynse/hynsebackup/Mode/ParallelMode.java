@@ -3,116 +3,104 @@ package xyz.hynse.hynsebackup.Mode;
 import com.github.luben.zstd.ZstdOutputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
-import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import xyz.hynse.hynsebackup.BackupManager;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
+import xyz.hynse.hynsebackup.Util.MiscUtil;
 import xyz.hynse.hynsebackup.Util.SchedulerUtil;
 import xyz.hynse.hynsebackup.Util.TimerUtil;
 
 import java.io.*;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.atomic.AtomicLong;
-import java.util.zip.Deflater;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ParallelMode {
 
     private final BackupManager backupManager;
     private final DisplayUtil displayUtil;
+    private final ExecutorService executorService;
     TimerUtil timer = new TimerUtil();
 
-    public ParallelMode(BackupManager backupManager, DisplayUtil displayUtil) {
+    public ParallelMode(BackupManager backupManager, DisplayUtil displayUtil, int parallelism) {
         this.backupManager = backupManager;
         this.displayUtil = displayUtil;
+        this.executorService = Executors.newFixedThreadPool(parallelism);
     }
 
-    public void compressWorldParallel(File source, File destination) throws IOException {
+    public void compressWorld(File source, File destination, CommandSender sender) throws IOException {
         long totalSize = backupManager.getMiscUtil().getFolderSize(source.toPath());
-        AtomicLong currentSize = new AtomicLong(0);
+        long[] currentSize = {0};
 
         SchedulerUtil.runAsyncNowScheduler(backupManager.plugin, () -> {
-            try {
-                CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
-                sender.sendMessage("Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() + " Mode - thread: " + backupManager.backupConfig.getParallelism());
+            try (FileOutputStream fos = new FileOutputStream(destination);
+                 BufferedOutputStream bos = new BufferedOutputStream(fos);
+                 ZstdOutputStream zos = new ZstdOutputStream(bos, backupManager.backupConfig.getCompressionLevel())) {
                 timer.start();
-                ForkJoinPool forkJoinPool = new ForkJoinPool(backupManager.backupConfig.getParallelism());
-                Map<String, byte[]> compressedFiles = new ConcurrentHashMap<>();
-                forkJoinPool.submit(() -> {
-                    try {
-                        compressDirectoryToMap(source, source.getName() + File.separator, totalSize, currentSize, compressedFiles);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                }).join();
+                if (sender != null) {
+                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode");
+                }
 
-                try (FileOutputStream fos = new FileOutputStream(destination);
-                     BufferedOutputStream bos = new BufferedOutputStream(fos);
-                     ZstdOutputStream zos = new ZstdOutputStream(bos, backupManager.backupConfig.getCompressionLevel())) {
+                try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
+                    taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
+                    taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
 
-                    try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
-                        taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
-                        taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
+                    TarArchiveEntry worldEntry = new TarArchiveEntry(source, source.getName() + "/");
+                    taos.putArchiveEntry(worldEntry);
+                    taos.closeArchiveEntry();
 
-                        TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
-                        taos.putArchiveEntry(worldEntry);
-                        taos.closeArchiveEntry();
-
-                        for (Map.Entry<String, byte[]> entry : compressedFiles.entrySet()) {
-                            TarArchiveEntry fileEntry = new TarArchiveEntry(entry.getKey());
-                            fileEntry.setSize(entry.getValue().length);
-                            taos.putArchiveEntry(fileEntry);
-                            taos.write(entry.getValue());
-                            taos.closeArchiveEntry();
-                        }
-                    }
+                    compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
                 }
                 timer.stop();
-                sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() + " Mode - thread: " + backupManager.backupConfig.getParallelism() +" completed in " + timer.getElapsedTime());
-                displayUtil.finishBossBarProgress();
+                if (sender != null) {
+                    sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode completed in " + timer.getElapsedTime());
+                    long compressedSize = destination.length();
+                    String humanReadableSize = MiscUtil.humanReadableByteCountBin(compressedSize);
+                    sender.sendMessage("Size of compressed world: " + humanReadableSize);
+                    displayUtil.finishBossBarProgress();
+                }
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
                 displayUtil.removeBossBar();
+                executorService.shutdown();
             }
         });
     }
 
-    private void compressDirectoryToMap(File source, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
-        if (source.listFiles() != null) {
-            for (File file : source.listFiles()) {
-                String filePath = entryPath + file.getName();
-                if (file.isDirectory()) {
-                    compressDirectoryToMap(file, filePath + File.separator, totalSize, currentSize, compressedFiles);
-                } else {
-                    compressFileToMap(file, filePath, totalSize, currentSize, compressedFiles);
-                }
+    private void compressDirectoryToTar(File source, String entryPath,TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
+        for (File file : source.listFiles()) {
+            String filePath = entryPath + file.getName();
+            if (file.isDirectory()) {
+                TarArchiveEntry dirEntry = new TarArchiveEntry(file, filePath + "/");
+                taos.putArchiveEntry(dirEntry);
+                taos.closeArchiveEntry();
+                compressDirectoryToTar(file, filePath + File.separator, taos, totalSize, currentSize);
+            } else {
+                addFileToTarParallel(file, filePath, taos, totalSize, currentSize);
             }
         }
     }
 
-    private void compressFileToMap(File file, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
-        try (FileInputStream fis = new FileInputStream(file)) {
-            byte[] fileData = new byte[(int) file.length()];
-            fis.read(fileData);
-
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            Deflater deflater = new Deflater(Deflater.BEST_COMPRESSION);
-            deflater.setInput(fileData);
-            deflater.finish();
-
-            byte[] buffer = new byte[4096];
-            while (!deflater.finished()) {
-                int count = deflater.deflate(buffer);
-                baos.write(buffer, 0, count);
+    private void addFileToTarParallel(File file, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) {
+        executorService.execute(() -> {
+            try {
+                TarArchiveEntry entry = new TarArchiveEntry(file, entryPath);
+                taos.putArchiveEntry(entry);
+                try (FileInputStream fis = new FileInputStream(file)) {
+                    int bytesRead;
+                    byte[] buffer = new byte[4096];
+                    while ((bytesRead = fis.read(buffer)) != -1) {
+                        taos.write(buffer, 0, bytesRead);
+                        synchronized (currentSize) {
+                            currentSize[0] += bytesRead;
+                            displayUtil.updateBossBarProgress((double) currentSize[0] / totalSize);
+                        }
+                    }
+                }
+                taos.closeArchiveEntry();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-            deflater.end();
-            byte[] compressedData = baos.toByteArray();
-
-            compressedFiles.put(entryPath, compressedData);
-            currentSize.addAndGet(file.length());
-            displayUtil.updateBossBarProgress((double) currentSize.get() / totalSize);
-        }
+        });
     }
 }

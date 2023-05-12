@@ -31,7 +31,7 @@ public class BackupManager {
         this.backupConfig = backupConfig;
         this.displayUtil = new DisplayUtil(backupProgressBossBar, backupConfig);
         this.basic = new BasicMode(this, displayUtil);
-        this.parallel = new ParallelMode(this, displayUtil);
+        this.parallel = new ParallelMode(this, displayUtil, backupConfig.getParallelism());
         this.miscUtil = new MiscUtil(this, backupConfig, plugin);
 
         if (backupConfig.isAutoEnabled()) {
@@ -61,6 +61,7 @@ public class BackupManager {
 
         try {
             if (backupConfig.getCompressionMode().equalsIgnoreCase("parallel")) {
+                parallel.compressWorld(worldFolder, backupFile, sender);
             } else if (backupConfig.getCompressionMode().equalsIgnoreCase("basic")) {
                 basic.compressWorld(worldFolder, backupFile, sender);
             }
