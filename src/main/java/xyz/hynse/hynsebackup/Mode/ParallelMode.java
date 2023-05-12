@@ -9,6 +9,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.scheduler.BukkitRunnable;
 import xyz.hynse.hynsebackup.BackupManager;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
+import xyz.hynse.hynsebackup.Util.SchedulerUtil;
 
 import java.io.*;
 import java.util.Map;
@@ -31,52 +32,49 @@ public class ParallelMode {
         long totalSize = backupManager.getMiscUtil().getFolderSize(source.toPath());
         AtomicLong currentSize = new AtomicLong(0);
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                try {
-                    CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
-                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with "+ backupManager.backupConfig.getCompressionMode() +" Mode - thread: " + backupManager.backupConfig.getParallelism());
-                    ForkJoinPool forkJoinPool = new ForkJoinPool(backupManager.backupConfig.getParallelism());
-                    Map<String, byte[]> compressedFiles = new ConcurrentHashMap<>();
-                    forkJoinPool.submit(() -> {
-                        try {
-                            compressDirectoryToMap(source, source.getName() + File.separator, totalSize, currentSize, compressedFiles);
-                        } catch (IOException e) {
-                            e.printStackTrace();
-                        }
-                    }).join();
+        SchedulerUtil.runAsyncNowScheduler(backupManager.plugin, () -> {
+            try {
+                CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
+                sender.sendMessage("Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() + " Mode - thread: " + backupManager.backupConfig.getParallelism());
+                ForkJoinPool forkJoinPool = new ForkJoinPool(backupManager.backupConfig.getParallelism());
+                Map<String, byte[]> compressedFiles = new ConcurrentHashMap<>();
+                forkJoinPool.submit(() -> {
+                    try {
+                        compressDirectoryToMap(source, source.getName() + File.separator, totalSize, currentSize, compressedFiles);
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }).join();
 
-                    try (FileOutputStream fos = new FileOutputStream(destination);
-                         BufferedOutputStream bos = new BufferedOutputStream(fos);
-                         ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
+                try (FileOutputStream fos = new FileOutputStream(destination);
+                     BufferedOutputStream bos = new BufferedOutputStream(fos);
+                     ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
 
-                        try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
-                            taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
-                            taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
+                    try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
+                        taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
+                        taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
 
-                            TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
-                            taos.putArchiveEntry(worldEntry);
+                        TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
+                        taos.putArchiveEntry(worldEntry);
+                        taos.closeArchiveEntry();
+
+                        for (Map.Entry<String, byte[]> entry : compressedFiles.entrySet()) {
+                            TarArchiveEntry fileEntry = new TarArchiveEntry(entry.getKey());
+                            fileEntry.setSize(entry.getValue().length);
+                            taos.putArchiveEntry(fileEntry);
+                            taos.write(entry.getValue());
                             taos.closeArchiveEntry();
-
-                            for (Map.Entry<String, byte[]> entry : compressedFiles.entrySet()) {
-                                TarArchiveEntry fileEntry = new TarArchiveEntry(entry.getKey());
-                                fileEntry.setSize(entry.getValue().length);
-                                taos.putArchiveEntry(fileEntry);
-                                taos.write(entry.getValue());
-                                taos.closeArchiveEntry();
-                            }
                         }
                     }
-                    sender.sendMessage("Compression of world [" + source.getName() + "] with "+ backupManager.backupConfig.getCompressionMode() +" Mode - thread: " + backupManager.backupConfig.getParallelism());
-                    displayUtil.finishBossBarProgress();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                } finally {
-                    displayUtil.removeBossBar();
                 }
+                sender.sendMessage("Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() + " Mode - thread: " + backupManager.backupConfig.getParallelism());
+                displayUtil.finishBossBarProgress();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                displayUtil.removeBossBar();
             }
-        }.runTaskAsynchronously(backupManager.plugin);
+        });
     }
 
     private void compressDirectoryToMap(File source, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {

@@ -9,6 +9,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.scheduler.BukkitRunnable;
 import xyz.hynse.hynsebackup.BackupManager;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
+import xyz.hynse.hynsebackup.Util.SchedulerUtil;
 
 import java.io.*;
 
@@ -26,9 +27,7 @@ public class BasicOptimizeMode {
         long totalSize = backupManager.getMiscUtil().getFolderSize(source.toPath());
         long[] currentSize = {0};
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
+        SchedulerUtil.runAsyncNowScheduler(backupManager.plugin, () -> {
                 try (FileOutputStream fos = new FileOutputStream(destination);
                      BufferedOutputStream bos = new BufferedOutputStream(fos);
                      ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel());
@@ -53,8 +52,7 @@ public class BasicOptimizeMode {
                 } finally {
                     displayUtil.removeBossBar();
                 }
-            }
-        }.runTaskAsynchronously(backupManager.plugin);
+        });
     }
 
     private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {

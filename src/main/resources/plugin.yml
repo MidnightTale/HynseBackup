@@ -2,6 +2,7 @@ name: HynseBackup
 version: '${version}'
 main: xyz.hynse.hynsebackup.HynseBackup
 api-version: 1.19
+folia-supported: true
 commands:
   backup:
     description: Start a backup for a specified world

@@ -3,13 +3,13 @@ package xyz.hynse.hynsebackup;
 import org.bukkit.World;
 import org.bukkit.boss.BossBar;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable;
 import xyz.hynse.hynsebackup.Mode.BasicMode;
 import xyz.hynse.hynsebackup.Mode.BasicOptimizeMode;
 import xyz.hynse.hynsebackup.Mode.ParallelMode;
 import xyz.hynse.hynsebackup.Mode.ParallelOptimizeMode;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
 import xyz.hynse.hynsebackup.Util.MiscUtil;
+import xyz.hynse.hynsebackup.Util.SchedulerUtil;
 
 import java.io.File;
 import java.time.LocalDateTime;
@@ -54,12 +54,10 @@ public class BackupManager {
         }
     }
     private void scheduleAutoBackup() {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                miscUtil.backupWhitelistedWorlds();
-            }
-        }.runTaskTimerAsynchronously(plugin, backupConfig.getAutoDelayInterval(), backupConfig.getAutoInterval());
+        SchedulerUtil.runAsyncFixRateScheduler(plugin,
+                () -> miscUtil.backupWhitelistedWorlds(),
+                backupConfig.getAutoDelayInterval(),
+                backupConfig.getAutoInterval());
     }
     public void backupWorld(World world) {
         File worldFolder = world.getWorldFolder();

@@ -24,14 +24,19 @@ public class SchedulerUtil {
         return IS_FOLIA;
     }
 
-    public static void runAsyncScheduler(Plugin plugin, Runnable runnable, int initialDelayTicks, int periodTicks) {
+    public static void runAsyncFixRateScheduler(Plugin plugin, Runnable runnable, int initialDelayTicks, int periodTicks) {
         if (isFolia()) {
-            AsyncScheduler asyncScheduler = Bukkit.getServicesManager().load(AsyncScheduler.class);
-            if (asyncScheduler != null) {
-                asyncScheduler.runAtFixedRate(plugin, (task) -> runnable.run(), initialDelayTicks, periodTicks, TimeUnit.SECONDS);
-            }
+            Bukkit.getAsyncScheduler().runAtFixedRate(plugin, (task) -> runnable.run(), initialDelayTicks, periodTicks, TimeUnit.SECONDS);
         } else {
             Bukkit.getScheduler().runTaskTimer(plugin, runnable, initialDelayTicks * 20L, periodTicks * 20L);
         }
     }
+    public static void runAsyncNowScheduler(Plugin plugin, Runnable runnable) {
+        if (isFolia()) {
+                Bukkit.getAsyncScheduler().runNow(plugin, (task) -> runnable.run());
+        } else {
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, runnable);
+        }
+    }
+
 }

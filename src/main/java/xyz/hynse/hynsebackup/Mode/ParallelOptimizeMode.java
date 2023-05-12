@@ -9,6 +9,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.scheduler.BukkitRunnable;
 import xyz.hynse.hynsebackup.BackupManager;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
+import xyz.hynse.hynsebackup.Util.SchedulerUtil;
 
 import java.io.*;
 import java.util.Map;
@@ -33,9 +34,7 @@ public class ParallelOptimizeMode {
         long totalSize = backupManager.getMiscUtil().getFolderSize(source.toPath());
         AtomicLong currentSize = new AtomicLong(0);
 
-        new BukkitRunnable() {
-            @Override
-            public void run() {
+        SchedulerUtil.runAsyncNowScheduler(backupManager.plugin, () -> {
                 try {
                     CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
 
@@ -78,8 +77,7 @@ public class ParallelOptimizeMode {
                 } finally {
                     displayUtil.removeBossBar();
                 }
-            }
-        }.runTaskAsynchronously(backupManager.plugin);
+        });
     }
 
     private void compressDirectoryToMap(File source, String entryPath, long totalSize, AtomicLong currentSize, Map<String, byte[]> compressedFiles) throws IOException {
