@@ -1,5 +1,6 @@
 package xyz.hynse.hynsebackup;
 
+import org.bukkit.ChatColor;
 import org.bukkit.World;
 import org.bukkit.boss.BossBar;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -41,7 +42,7 @@ public class BackupManager {
         }
 
         if (backupConfig.getCompressionMode().equalsIgnoreCase("parallel")) {
-            plugin.getLogger().warning("Parallel compression mode is experimental and may cause performance issues.");
+            plugin.getLogger().warning(ChatColor.RED + "Warning: Parallel compression mode is experimental and may cause severe performance issues. Use with caution!");
         }
     }
     private void scheduleAutoBackup() {

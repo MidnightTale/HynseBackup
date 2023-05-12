@@ -37,35 +37,47 @@ public class AdvancedMode {
             public void run() {
                 try (FileOutputStream fos = new FileOutputStream(destination);
                      BufferedOutputStream bos = new BufferedOutputStream(fos);
-                     ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel())) {
+                     ZstdOutputStream zos = new ZstdOutputStream(bos, Zstd.maxCompressionLevel());
+                     TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
 
-                    // Existing code
+                    CommandSender sender = Bukkit.getConsoleSender(); // Use the console sender as the default sender
 
-                    try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
-                        // Existing code
+                    sender.sendMessage("Starting compression of world [" + source.getName() + "] with Advanced mode - thread: " + backupManager.backupConfig.getParallelism());
 
-                        compressDirectoryToTar(executor, latch, source, source.getName() + File.separator, taos, totalSize, currentSize);
-                        latch.await(); // wait for all tasks to finish
-                    }
+                    taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
+                    taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
 
-                    // Existing code
+                    TarArchiveEntry worldEntry = new TarArchiveEntry(source.getName() + "/");
+                    taos.putArchiveEntry(worldEntry);
+                    taos.closeArchiveEntry();
+
+                    compressDirectoryToTar(executor, latch, source, source.getName() + File.separator, taos, totalSize, currentSize);
+                    latch.await(); // wait for all tasks to finish
+
+                    sender.sendMessage("Compression of world [" + source.getName() + "] with Advanced mode completed - thread: " + backupManager.backupConfig.getParallelism());
+                    displayUtil.finishBossBarProgress();
                 } catch (IOException | InterruptedException e) {
                     e.printStackTrace();
                 } finally {
-                    // Existing code
+                    displayUtil.removeBossBar();
+                    executor.shutdown(); // shut down the executor
                 }
             }
         }.runTaskAsynchronously(backupManager.plugin);
     }
 
-        private void compressDirectoryToTar(ExecutorService executor, CountDownLatch latch, File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
+    private void compressDirectoryToTar(ExecutorService executor, CountDownLatch latch, File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) {
         for (File file : source.listFiles()) {
             String filePath = entryPath + file.getName();
             if (file.isDirectory()) {
                 TarArchiveEntry dirEntry = new TarArchiveEntry(file, filePath + "/");
-                taos.putArchiveEntry(dirEntry);
-                taos.closeArchiveEntry();
-                compressDirectoryToTar(executor, latch, file, filePath + File.separator, taos, totalSize, currentSize);
+                try {
+                    taos.putArchiveEntry(dirEntry);
+                    taos.closeArchiveEntry();
+                    compressDirectoryToTar(executor, latch, file, filePath + File.separator, taos, totalSize, currentSize);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
             } else {
                 executor.submit(() -> {
                     try {
@@ -81,21 +93,21 @@ public class AdvancedMode {
     }
 
     private void addFileToTar(File file, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
-        synchronized (taos) {
-            TarArchiveEntry entry = new TarArchiveEntry(file, entryPath);
-            taos.putArchiveEntry(entry);
+        TarArchiveEntry entry = new TarArchiveEntry(file, entryPath);
+        taos.putArchiveEntry(entry);
 
-            try (FileInputStream fis = new FileInputStream(file)) {
-                int bytesRead;
-                byte[] buffer = new byte[4096];
-                while ((bytesRead = fis.read(buffer)) != -1) {
-                    taos.write(buffer, 0, bytesRead);
-                    synchronized (currentSize) {
-                        currentSize[0] += bytesRead;
-                        displayUtil.updateBossBarProgress((double) currentSize[0] / totalSize);
-                    }
+        try (FileInputStream fis = new FileInputStream(file)) {
+            int bytesRead;
+            byte[] buffer = new byte[4096];
+            while ((bytesRead = fis.read(buffer)) != -1) {
+                taos.write(buffer, 0, bytesRead);
+                synchronized (currentSize) {
+                    currentSize[0] += bytesRead;
+                    displayUtil.updateBossBarProgress((double) currentSize[0] / totalSize);
                 }
             }
+        } finally {
+            taos.flush(); // Flush the TarArchiveOutputStream
             taos.closeArchiveEntry();
         }
     }
