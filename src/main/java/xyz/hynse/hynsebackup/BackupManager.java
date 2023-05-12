@@ -175,19 +175,11 @@ public class BackupManager {
                         taos.putArchiveEntry(worldEntry);
                         taos.closeArchiveEntry();
 
-                        int parallelism = backupConfig.getParallelism();
-                        ExecutorService executorService = Executors.newFixedThreadPool(parallelism);
-                        List<Future<Void>> futures = new ArrayList<>();
-
-                        compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize, executorService, futures);
-                        executorService.shutdown();
-                        for (Future<Void> future : futures) {
-                            future.get();
-                        }
+                        compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
                     }
                     sender.sendMessage("Compression of world [" + source.getName() + "] with Basic mode completed - thread: " + backupConfig.getParallelism());
                     FinishBossBarProgress();
-                } catch (IOException | InterruptedException | ExecutionException e) {
+                } catch (IOException e) {
                     e.printStackTrace();
                 } finally {
                     removeBossBar();
@@ -233,19 +225,16 @@ public class BackupManager {
             updateBossBarProgress((double) currentSize.get() / totalSize);
         }
     }
-    private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize, ExecutorService executorService, List<Future<Void>> futures) throws IOException {
+    private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
         for (File file : source.listFiles()) {
             String filePath = entryPath + file.getName();
             if (file.isDirectory()) {
                 TarArchiveEntry dirEntry = new TarArchiveEntry(file, filePath + "/");
                 taos.putArchiveEntry(dirEntry);
                 taos.closeArchiveEntry();
-                compressDirectoryToTar(file, filePath + File.separator, taos, totalSize, currentSize, executorService, futures);
+                compressDirectoryToTar(file, filePath + File.separator, taos, totalSize, currentSize);
             } else {
-                futures.add(executorService.submit(() -> {
-                    addFileToTar(file, filePath, taos, totalSize, currentSize);
-                    return null;
-                }));
+                addFileToTar(file, filePath, taos, totalSize, currentSize);
             }
         }
     }

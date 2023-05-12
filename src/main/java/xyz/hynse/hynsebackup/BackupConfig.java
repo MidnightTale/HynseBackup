@@ -27,7 +27,7 @@ public class BackupConfig {
         maxBackupEnabled = config.getBoolean("max_backup.enabled");
         maxBackupCount = config.getInt("max_backup.count");
         parallelism = config.getInt("compression.parallelism", Runtime.getRuntime().availableProcessors());
-        bossBarEnabled = config.getBoolean("compression.bossbar", true); // Default value: true
+        bossBarEnabled = config.getBoolean("compression.bossbar");
     }
 
     public boolean isAutoEnabled() {
