@@ -1,45 +1,38 @@
-# Automatic backup settings
 auto:
-  # Enable or disable automatic backup.
-  # If 'true', backups will be automatically created based on the 'interval' setting.
+  # Enable automatic backups
   enabled: true
-
-  # Interval: This determines the frequency of automatic backups, specified in seconds.
-  # For example, an interval of 72000 seconds is equivalent to 20 hours.
+  # Backup interval in ticks (1 second = 20 ticks)
   interval: 72000
-
-  # Delay: This sets the delay (in seconds) for the first automatic backup to be created when the server starts.
-  # For instance, a delay of 1 second will result in the first backup being created 1 second after the server starts.
+  # Delay before the first backup after server start, in ticks
   delay: 10
 
-# List of worlds to backup. Only the worlds mentioned here will be backed up.
-# Each world is identified by its name as a string. Add or remove world names as per your requirements.
 whitelist_world:
+  # List of worlds to be included in backups
   - world
   - world_nether
   - world_the_end
 
-# Maximum number of backups to retain
 max_backup:
+  # Enable limiting the number of backups
   enabled: true
+  # Maximum number of backups to keep
   count: 3
 
 compression:
-  # Compression mode: Options are "basic"or "parallel"
-  # Note: "Parallel" modes are experimental and could potentially cause performance issues.
-  # These modes may increase the server's memory usage during compression.
-  mode: basic
+  # Compression mode: zip, zstd, zstd_experimental
+  mode: zstd
 
-  # Compression level: This is a value ranging from 1 to 22, which sets the compression level used by the Zstd algorithm.
-  # A lower value (like 1) results in quicker compression times but a lower compression ratio.
-  # A higher value (like 22) leads to slower compression times but a higher compression ratio.
-  # This setting might need adjustment depending on your server's hardware capabilities and your specific needs.
-  level: 3
+  zstd:
+    # Zstd compression level (1-22)
+    level: 3
+    # Parallelism level for zstd_experimental compression
+    # Note: zstd_experimental mode is experimental and may cause performance issues.
+    # It increases the server's memory when using zstd_experimental mode.
+    parallelism: 4
 
-  # Parallelism: This sets the number of threads used for "parallel" compression modes.
-  # Increasing this value might enhance compression speed on multi-core systems,
-  # but it will also elevate memory usage. Adjust this value based on your server's capabilities.
-  parallelism: 4
+  zip:
+    # Zip compression level ((-1)-9)
+    level: -1
 
-  # Bossbar: This setting decides whether a progress bar is displayed during compression. Set to 'true' to enable, 'false' to disable.
+  # Enable progress display using a boss bar
   bossbar: true

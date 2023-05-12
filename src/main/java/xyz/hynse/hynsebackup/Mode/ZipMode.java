@@ -1,8 +1,7 @@
 package xyz.hynse.hynsebackup.Mode;
 
-import com.github.luben.zstd.ZstdOutputStream;
-import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
-import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
+import org.apache.commons.compress.archivers.zip.ZipArchiveEntry;
+import org.apache.commons.compress.archivers.zip.ZipArchiveOutputStream;
 import org.bukkit.command.CommandSender;
 import xyz.hynse.hynsebackup.BackupManager;
 import xyz.hynse.hynsebackup.Util.DisplayUtil;
@@ -12,12 +11,13 @@ import xyz.hynse.hynsebackup.Util.TimerUtil;
 
 import java.io.*;
 
-public class BasicMode {
+public class ZipMode {
 
     private final BackupManager backupManager;
     private final DisplayUtil displayUtil;
     TimerUtil timer = new TimerUtil();
-    public BasicMode(BackupManager backupManager, DisplayUtil displayUtil) {
+
+    public ZipMode(BackupManager backupManager, DisplayUtil displayUtil) {
         this.backupManager = backupManager;
         this.displayUtil = displayUtil;
     }
@@ -29,29 +29,25 @@ public class BasicMode {
         SchedulerUtil.runAsyncNowScheduler(backupManager.plugin, () -> {
             try (FileOutputStream fos = new FileOutputStream(destination);
                  BufferedOutputStream bos = new BufferedOutputStream(fos);
-                 ZstdOutputStream zos = new ZstdOutputStream(bos, backupManager.backupConfig.getCompressionLevel())) {
+                 ZipArchiveOutputStream zos = new ZipArchiveOutputStream(bos)) {
+                zos.setMethod(ZipArchiveOutputStream.DEFLATED);
+                zos.setLevel(backupManager.backupConfig.getZipLevel());
+
+
                 timer.start();
-                String startMessage = "Starting compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode";
+                String startMessage = "Starting compression of world [" + source.getName() + "] with Zip Mode";
                 if (sender != null) {
                     sender.sendMessage(startMessage);
                 } else {
                     backupManager.plugin.getLogger().info(startMessage);
                 }
 
-                try (TarArchiveOutputStream taos = new TarArchiveOutputStream(zos)) {
-                    taos.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
-                    taos.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
+                compressDirectoryToZip(source, source.getName() + File.separator, zos, totalSize, currentSize);
 
-                    TarArchiveEntry worldEntry = new TarArchiveEntry(source, source.getName() + "/");
-                    taos.putArchiveEntry(worldEntry);
-                    taos.closeArchiveEntry();
-
-                    compressDirectoryToTar(source, source.getName() + File.separator, taos, totalSize, currentSize);
-                }
                 timer.stop();
 
-                long compressedSize = destination.length();  // Get the size of the compressed backup file
-                String endMessage = "Compression of world [" + source.getName() + "] with " + backupManager.backupConfig.getCompressionMode() +" Mode completed in " + timer.getElapsedTime();
+                long compressedSize = destination.length();
+                String endMessage = "Compression of world [" + source.getName() + "] with Zip Mode completed in " + timer.getElapsedTime();
                 String sizeMessage = "Size of compressed world: " + MiscUtil.humanReadableByteCountBin(compressedSize);
                 if (sender != null) {
                     sender.sendMessage(endMessage);
@@ -68,34 +64,35 @@ public class BasicMode {
         });
     }
 
-    private void compressDirectoryToTar(File source, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
+
+    private void compressDirectoryToZip(File source, String entryPath, ZipArchiveOutputStream zos, long totalSize, long[] currentSize) throws IOException {
         for (File file : source.listFiles()) {
             String filePath = entryPath + file.getName();
             if (file.isDirectory()) {
-                TarArchiveEntry dirEntry = new TarArchiveEntry(file, filePath + "/");
-                taos.putArchiveEntry(dirEntry);
-                taos.closeArchiveEntry();
-                compressDirectoryToTar(file, filePath + File.separator, taos, totalSize, currentSize);
+                ZipArchiveEntry dirEntry = new ZipArchiveEntry(filePath + "/");
+                zos.putArchiveEntry(dirEntry);
+                zos.closeArchiveEntry();
+                compressDirectoryToZip(file, filePath + File.separator, zos, totalSize, currentSize);
             } else {
-                addFileToTar(file, filePath, taos, totalSize, currentSize);
+                addFileToZip(file, filePath, zos, totalSize, currentSize);
             }
         }
     }
 
-    private void addFileToTar(File file, String entryPath, TarArchiveOutputStream taos, long totalSize, long[] currentSize) throws IOException {
-        TarArchiveEntry entry = new TarArchiveEntry(file, entryPath);
-        taos.putArchiveEntry(entry);
+    private void addFileToZip(File file, String entryPath, ZipArchiveOutputStream zos, long totalSize, long[] currentSize) throws IOException {
+        ZipArchiveEntry entry = new ZipArchiveEntry(entryPath);
+        zos.putArchiveEntry(entry);
 
         try (FileInputStream fis = new FileInputStream(file)) {
             int bytesRead;
             byte[] buffer = new byte[4096];
             while ((bytesRead = fis.read(buffer)) != -1) {
-                taos.write(buffer, 0, bytesRead);
+                zos.write(buffer, 0, bytesRead);
                 currentSize[0] += bytesRead;
                 displayUtil.updateBossBarProgress((double) currentSize[0] / totalSize);
             }
         }
-        taos.closeArchiveEntry();
+        zos.closeArchiveEntry();
     }
-
 }
+
