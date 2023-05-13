@@ -139,8 +139,6 @@ public class HynseBackup extends JavaPlugin {
         }
         return bytesWritten;
     }
-
-
     private void printProgress(World world, long totalSize, long bytesWritten, long startTime) {
         String worldName = world.getName();
         float percentDone = (bytesWritten / (float) totalSize) * 100;
@@ -150,17 +148,18 @@ public class HynseBackup extends JavaPlugin {
 
         int progressPercentage = (int) percentDone;
 
-        int nearestMultipleOfFive = Math.round(progressPercentage / 5.0f) * 5;
-        int difference = Math.abs(progressPercentage - nearestMultipleOfFive);
+        // Convert the log threshold from MB to bytes
+        long logThreshold = 100 * 1024 * 1024;
 
-        // Adjust the threshold value as needed
-        int threshold = 2;
-
-        if (difference <= threshold && progressPercentage != 0) {
+        if (bytesWritten >= logThreshold && progressPercentage != 0) {
             getLogger().info(String.format("Backup progress [%s]: %.2f%%, (%s) ETA: %s",
                     worldName, percentDone, FormatUtil.humanReadableByteCountBin(bytesWritten), FormatUtil.formatTime(estimatedTimeRemaining)));
+
+            // Increment the log threshold for the next progress log
+            logThreshold += 100 * 1024 * 1024;
         }
     }
+
     private void limitBackups(World world) {
         if (!getConfig().getBoolean("max_backup.enabled")) {
             return;
