@@ -23,6 +23,8 @@ import java.util.List;
 import java.util.stream.Stream;
 
 public class HynseBackup extends JavaPlugin {
+    private static final int BUFFER_SIZE = 8192;
+
     @Override
     public void onEnable() {
         saveDefaultConfig();
@@ -60,8 +62,12 @@ public class HynseBackup extends JavaPlugin {
         long startTime = System.currentTimeMillis();
 
         try (OutputStream out = Files.newOutputStream(backupPath);
-             ZstdOutputStream zstdOut = new ZstdOutputStream(new BufferedOutputStream(out), compressionLevel);
+             BufferedOutputStream bufferedOut = new BufferedOutputStream(out, BUFFER_SIZE);
+             ZstdOutputStream zstdOut = new ZstdOutputStream(bufferedOut, compressionLevel);
              TarArchiveOutputStream tarOut = new TarArchiveOutputStream(zstdOut)) {
+
+            tarOut.setBigNumberMode(TarArchiveOutputStream.BIGNUMBER_STAR);
+            tarOut.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
 
             addFileToTar(tarOut, worldFolder.toPath(), worldFolder.toPath(), totalSize, startTime, world);
 
@@ -92,18 +98,12 @@ public class HynseBackup extends JavaPlugin {
             return 0;
         }
     }
-
-
-    private long addFileToTar(TarArchiveOutputStream tarOut, Path rootPath, Path filePath, long totalSize, long startTime, World world) throws IOException {
-        long bytesWritten = 0;
-
+    private void addFileToTar(TarArchiveOutputStream tarOut, Path rootPath, Path filePath, long totalSize, long startTime, World world) throws IOException {
         File file = filePath.toFile();
         String entryName = rootPath.relativize(filePath).toString();
 
         if (entryName.length() > TarConstants.NAMELEN) {
             // Entry name is too long, use long filename mode
-            tarOut.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
-
             TarArchiveEntry longNameEntry = new TarArchiveEntry(TarConstants.GNU_LONGLINK, TarConstants.LF_GNUTYPE_LONGNAME);
             longNameEntry.setSize(entryName.length() + 1); // Add 1 for null terminator
             tarOut.putArchiveEntry(longNameEntry);
@@ -119,26 +119,30 @@ public class HynseBackup extends JavaPlugin {
             File[] childFiles = file.listFiles();
             if (childFiles != null) {
                 for (File childFile : childFiles) {
-                    bytesWritten += addFileToTar(tarOut, rootPath, childFile.toPath(), totalSize, startTime, world);
+                    addFileToTar(tarOut, rootPath, childFile.toPath(), totalSize, startTime, world);
                 }
             }
         } else {
             // Handle file
             TarArchiveEntry entry = new TarArchiveEntry(file, entryName);
+            entry.setModTime(startTime);
+            entry.setSize(file.length());
+            tarOut.putArchiveEntry(entry);
+
             try (FileInputStream fis = new FileInputStream(file)) {
-                tarOut.putArchiveEntry(entry);
-
-                long fileBytesWritten = IOUtils.copy(fis, tarOut);
-                bytesWritten += fileBytesWritten;
-
-                // Call printProgress here
-                printProgress(world, totalSize, bytesWritten, startTime);
-
-                tarOut.closeArchiveEntry();
+                byte[] buffer = new byte[BUFFER_SIZE];
+                int bytesRead;
+                while ((bytesRead = fis.read(buffer)) != -1) {
+                    tarOut.write(buffer, 0, bytesRead);
+                }
             }
+
+            tarOut.closeArchiveEntry();
+
+            printProgress(world, totalSize, entry.getSize(), startTime);
         }
-        return bytesWritten;
     }
+
     private void printProgress(World world, long totalSize, long bytesWritten, long startTime) {
         String worldName = world.getName();
         float percentDone = (bytesWritten / (float) totalSize) * 100;
@@ -148,15 +152,15 @@ public class HynseBackup extends JavaPlugin {
 
         int progressPercentage = (int) percentDone;
 
-        // Convert the log threshold from MB to bytes
-        long logThreshold = 100 * 1024 * 1024;
+        int nearestMultipleOfFive = Math.round(progressPercentage / 5.0f) * 5;
+        int difference = Math.abs(progressPercentage - nearestMultipleOfFive);
 
-        if (bytesWritten >= logThreshold && progressPercentage != 0) {
+        // Adjust the threshold value as needed
+        int threshold = 2;
+
+        if (difference <= threshold && progressPercentage != 0) {
             getLogger().info(String.format("Backup progress [%s]: %.2f%%, (%s) ETA: %s",
                     worldName, percentDone, FormatUtil.humanReadableByteCountBin(bytesWritten), FormatUtil.formatTime(estimatedTimeRemaining)));
-
-            // Increment the log threshold for the next progress log
-            logThreshold += 100 * 1024 * 1024;
         }
     }
 
