@@ -148,14 +148,19 @@ public class HynseBackup extends JavaPlugin {
         long estimatedTotalTime = (long) (elapsedTime / (percentDone / 100));
         long estimatedTimeRemaining = estimatedTotalTime - elapsedTime;
 
-        if (percentDone % 5 == 0) {
+        int progressPercentage = (int) percentDone;
+
+        int nearestMultipleOfFive = Math.round(progressPercentage / 5.0f) * 5;
+        int difference = Math.abs(progressPercentage - nearestMultipleOfFive);
+
+        // Adjust the threshold value as needed
+        int threshold = 2;
+
+        if (difference <= threshold && progressPercentage != 0) {
             getLogger().info(String.format("Backup progress [%s]: %.2f%%, (%s) ETA: %s",
                     worldName, percentDone, FormatUtil.humanReadableByteCountBin(bytesWritten), FormatUtil.formatTime(estimatedTimeRemaining)));
         }
     }
-
-
-
     private void limitBackups(World world) {
         if (!getConfig().getBoolean("max_backup.enabled")) {
             return;
