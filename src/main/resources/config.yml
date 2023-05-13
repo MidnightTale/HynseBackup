@@ -11,4 +11,5 @@ progress:
   enabled: true
 
 compression:
+  mode: default
   level: 3

@@ -17,3 +17,4 @@ permissions:
     description: Allows the player to list backups
     default: op
 folia-supported: true
+load: POSTWORLD
