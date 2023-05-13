@@ -20,16 +20,15 @@ import java.util.Arrays;
 import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
-public class HynseBackup extends JavaPlugin {
-    private static final long PRINT_DELAY = 5000; // Print progress every 5 seconds
-    private long lastPrintTime = 0;
+import java.util.stream.Stream;
 
+public class HynseBackup extends JavaPlugin {
     @Override
     public void onEnable() {
         saveDefaultConfig();
         List<String> worldsToBackup = getConfig().getStringList("whitelist-worlds");
 
-        SchedulerUtil.runGlobalScheduler(this,() -> {
+        SchedulerUtil.runGlobalScheduler(this, () -> {
             for (String worldName : worldsToBackup) {
                 World world = Bukkit.getWorld(worldName);
                 if (world != null) {
@@ -43,6 +42,7 @@ public class HynseBackup extends JavaPlugin {
 
     private void backupWorld(World world) {
         getLogger().info("Starting backup for world " + world.getName() + " ...");
+        limitBackups(world);
         File worldFolder = world.getWorldFolder();
         File backupDirectory = new File(getDataFolder(), "backup/" + world.getName());
         if (!backupDirectory.exists() && !backupDirectory.mkdirs()) {
@@ -55,35 +55,36 @@ public class HynseBackup extends JavaPlugin {
 
         long totalSize = calculateTotalSize(worldFolder); // Calculate total size here
 
-        long totalBytesWritten;
-        long startTime = System.currentTimeMillis();
-
         int compressionLevel = getConfig().getInt("compression.level"); // Add a config for compression level with a default of 3
+
+        long startTime = System.currentTimeMillis();
 
         try (OutputStream out = Files.newOutputStream(backupPath);
              ZstdOutputStream zstdOut = new ZstdOutputStream(new BufferedOutputStream(out), compressionLevel);
              TarArchiveOutputStream tarOut = new TarArchiveOutputStream(zstdOut)) {
 
-            totalBytesWritten = addFileToTar(tarOut, worldFolder.toPath(), worldFolder.toPath());
+            addFileToTar(tarOut, worldFolder.toPath(), worldFolder.toPath(), totalSize, startTime, world);
 
-            // Call printProgress here
-            printProgress(totalSize, totalBytesWritten, startTime);
-
-            tarOut.finish();
             getLogger().info("Backup for " + world.getName() + " created successfully.");
         } catch (IOException e) {
             getLogger().severe("Failed to create backup for " + world.getName());
             e.printStackTrace();
         }
-
-        limitBackups(world);
     }
 
     private long calculateTotalSize(File worldFolder) {
-        try {
-            return Files.walk(worldFolder.toPath())
+        try (Stream<Path> pathStream = Files.walk(worldFolder.toPath())) {
+            return pathStream
                     .filter(Files::isRegularFile)
-                    .mapToLong(path -> path.toFile().length())
+                    .mapToLong(path -> {
+                        try {
+                            return Files.size(path);
+                        } catch (IOException e) {
+                            getLogger().severe("Failed to get file size: " + path);
+                            e.printStackTrace();
+                            return 0;
+                        }
+                    })
                     .sum();
         } catch (IOException e) {
             getLogger().severe("Failed to calculate world size");
@@ -92,26 +93,8 @@ public class HynseBackup extends JavaPlugin {
         }
     }
 
-    private void printProgress(long totalSize, long totalBytesWritten, long startTime) {
-        if (!getConfig().getBoolean("progress.enabled")) {
-            return;
-        }
 
-        long now = System.currentTimeMillis();
-        if (now - lastPrintTime < PRINT_DELAY) {
-            return;  // Don't print if not enough time has passed
-        }
-        lastPrintTime = now;
-
-        float percentDone = (totalBytesWritten / (float) totalSize) * 100;
-        long elapsedTime = now - startTime;
-        long estimatedTotalTime = (long) (elapsedTime / (percentDone / 100));
-        long estimatedTimeRemaining = estimatedTotalTime - elapsedTime;
-
-        getLogger().info(String.format("Backup progress: %.2f%%, (%s) ETA: %s",
-                percentDone, FormatUtil.humanReadableByteCountBin(totalBytesWritten), FormatUtil.formatTime(estimatedTimeRemaining)));
-    }
-    private long addFileToTar(TarArchiveOutputStream tarOut, Path rootPath, Path filePath) throws IOException {
+    private long addFileToTar(TarArchiveOutputStream tarOut, Path rootPath, Path filePath, long totalSize, long startTime, World world) throws IOException {
         long bytesWritten = 0;
 
         File file = filePath.toFile();
@@ -136,7 +119,7 @@ public class HynseBackup extends JavaPlugin {
             File[] childFiles = file.listFiles();
             if (childFiles != null) {
                 for (File childFile : childFiles) {
-                    bytesWritten += addFileToTar(tarOut, rootPath, childFile.toPath());
+                    bytesWritten += addFileToTar(tarOut, rootPath, childFile.toPath(), totalSize, startTime, world);
                 }
             }
         } else {
@@ -144,13 +127,35 @@ public class HynseBackup extends JavaPlugin {
             TarArchiveEntry entry = new TarArchiveEntry(file, entryName);
             try (FileInputStream fis = new FileInputStream(file)) {
                 tarOut.putArchiveEntry(entry);
-                bytesWritten += IOUtils.copy(fis, tarOut);
+
+                long fileBytesWritten = IOUtils.copy(fis, tarOut);
+                bytesWritten += fileBytesWritten;
+
+                // Call printProgress here
+                printProgress(world, totalSize, bytesWritten, startTime);
+
                 tarOut.closeArchiveEntry();
             }
         }
-
         return bytesWritten;
     }
+
+
+    private void printProgress(World world, long totalSize, long bytesWritten, long startTime) {
+        String worldName = world.getName();
+        float percentDone = (bytesWritten / (float) totalSize) * 100;
+        long elapsedTime = System.currentTimeMillis() - startTime;
+        long estimatedTotalTime = (long) (elapsedTime / (percentDone / 100));
+        long estimatedTimeRemaining = estimatedTotalTime - elapsedTime;
+
+        if (percentDone % 5 == 0) {
+            getLogger().info(String.format("Backup progress [%s]: %.2f%%, (%s) ETA: %s",
+                    worldName, percentDone, FormatUtil.humanReadableByteCountBin(bytesWritten), FormatUtil.formatTime(estimatedTimeRemaining)));
+        }
+    }
+
+
+
     private void limitBackups(World world) {
         if (!getConfig().getBoolean("max_backup.enabled")) {
             return;
