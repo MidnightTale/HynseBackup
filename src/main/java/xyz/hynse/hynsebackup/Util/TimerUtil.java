@@ -5,14 +5,14 @@ import java.time.Instant;
 
 public class TimerUtil {
 
-    private Instant start;
-    private Instant end;
+    private static Instant start;
+    private static Instant end;
 
-    public void start() {
+    public static void start() {
         start = Instant.now();
     }
 
-    public void stop() {
+    public static void stop() {
         end = Instant.now();
     }
 

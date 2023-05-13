@@ -30,9 +30,9 @@ public class SchedulerUtil {
             Bukkit.getScheduler().runTaskTimer(plugin, runnable, initialDelayTicks * 20L, periodTicks * 20L);
         }
     }
-    public static void runAsyncNowScheduler(Plugin plugin, Runnable runnable) {
+    public static void runGlobalScheduler(Plugin plugin, Runnable runnable) {
         if (isFolia()) {
-                Bukkit.getAsyncScheduler().runNow(plugin, (task) -> runnable.run());
+            Bukkit.getGlobalRegionScheduler().run(plugin, (task) -> runnable.run());
         } else {
             Bukkit.getScheduler().runTaskAsynchronously(plugin, runnable);
         }
