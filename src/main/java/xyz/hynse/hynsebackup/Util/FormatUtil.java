@@ -19,18 +19,17 @@ public class FormatUtil {
         value *= Long.signum(bytes);
         return String.format("%.1f %cB", value / 1024.0, ci.current());
     }
-    public static String formatTime(long millis) {
-        long hours = TimeUnit.MILLISECONDS.toHours(millis);
-        long minutes = TimeUnit.MILLISECONDS.toMinutes(millis) % TimeUnit.HOURS.toMinutes(1);
-        long seconds = TimeUnit.MILLISECONDS.toSeconds(millis) % TimeUnit.MINUTES.toSeconds(1);
-        long milliseconds = millis % TimeUnit.SECONDS.toMillis(1);
+    public static String formatTime(long seconds) {
+        long hours = TimeUnit.SECONDS.toHours(seconds);
+        long minutes = TimeUnit.SECONDS.toMinutes(seconds) % TimeUnit.HOURS.toMinutes(1);
+        seconds = seconds % TimeUnit.MINUTES.toSeconds(1);
 
         if (hours > 0) {
-            return String.format("%d:%02d:%02d.%03d", hours, minutes, seconds, milliseconds);
+            return String.format("%d hour", hours);
         } else if (minutes > 0) {
-            return String.format("%d:%02d.%03d", minutes, seconds, milliseconds);
+            return String.format("%d minute", minutes);
         } else {
-            return String.format("%d.%03d", seconds, milliseconds);
+            return String.format("%d second", seconds);
         }
     }
 }

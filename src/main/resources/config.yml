@@ -1,15 +1,11 @@
 whitelist-worlds:
+  - world
   - world_nether
   - world_the_end
-  - world
+
+compression:
+  level: 3
 
 max_backup:
   enabled: true
-  count: 5
-
-progress:
-  enabled: true
-
-compression:
-  mode: zstd
-  level: 3
+  count: 1

@@ -37,5 +37,12 @@ public class SchedulerUtil {
             Bukkit.getScheduler().runTaskAsynchronously(plugin, runnable);
         }
     }
+    public static void runAsyncDelay(Plugin plugin, Runnable runnable, int periodTicks) {
+        if (isFolia()) {
+            Bukkit.getAsyncScheduler().runDelayed(plugin, (task) -> runnable.run(), periodTicks, TimeUnit.SECONDS);
+        } else {
+            Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, runnable, periodTicks * 20L);
+        }
+    }
 
 }
