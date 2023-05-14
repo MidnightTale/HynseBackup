@@ -26,6 +26,7 @@ dependencies {
     implementation 'net.lingala.zip4j:zip4j:2.11.5'
     implementation 'com.github.luben:zstd-jni:1.5.5-2'
     implementation 'org.apache.commons:commons-compress:1.23.0'
+    implementation 'org.lz4:lz4-java:1.8.0'
 }
 
 shadowJar {

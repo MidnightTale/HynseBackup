@@ -4,7 +4,6 @@ import org.bukkit.Bukkit;
 import org.bukkit.World;
 import org.bukkit.plugin.java.JavaPlugin;
 import xyz.hynse.hynsebackup.Compreesion.DefaultCompreesion;
-import xyz.hynse.hynsebackup.Compreesion.MultiThreadCompression;
 import xyz.hynse.hynsebackup.Util.MiscUtil;
 import xyz.hynse.hynsebackup.Util.SchedulerUtil;
 import xyz.hynse.hynsebackup.Util.TimerUtil;
@@ -44,22 +43,21 @@ public class Manager {
         // Initiate the compression utility
         MiscUtil miscUtil = new MiscUtil(plugin);
         DefaultCompreesion compression = new DefaultCompreesion(miscUtil, plugin);
-        MultiThreadCompression multiThreadCompression = new MultiThreadCompression(miscUtil, plugin);
 
         // Call the start method of the compression utility
         try {
             TimerUtil timer = new TimerUtil();
             TimerUtil.start();
-            if (Objects.requireNonNull(plugin.getConfig().getString("compression.mode")).equalsIgnoreCase("default")) {
+            if (Objects.requireNonNull(plugin.getConfig().getString("compression.mode")).equalsIgnoreCase("zstd")) {
                 compression.start(world);
             } else if (Objects.requireNonNull(plugin.getConfig().getString("compression.mode")).equalsIgnoreCase("todo1")) {
-                multiThreadCompression.start(world);
+                compression.start(world);
             }
             TimerUtil.stop();
 
             plugin.getLogger().info(String.format("Backup for world %s completed. Size: %s, Time: %s",
                     world.getName(), miscUtil.getFormattedTotalSize(world), timer.getElapsedTime()));
-        } catch (IOException | InterruptedException e) {
+        } catch (IOException e) {
             plugin.getLogger().severe("Failed to compress the world: " + e.getMessage());
             return;
         }

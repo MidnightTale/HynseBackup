@@ -11,5 +11,5 @@ progress:
   enabled: true
 
 compression:
-  mode: default
+  mode: zstd
   level: 3
