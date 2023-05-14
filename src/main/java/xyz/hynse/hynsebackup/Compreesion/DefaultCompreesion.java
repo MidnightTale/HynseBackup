@@ -17,7 +17,6 @@ import java.util.Date;
 
 public class DefaultCompreesion {
     private static final int BUFFER_SIZE = 8192;
-
     private MiscUtil miscUtil;
     private JavaPlugin plugin;
 

@@ -12,7 +12,7 @@ import java.util.Comparator;
 import java.util.stream.Stream;
 
 public class MiscUtil {
-    private final JavaPlugin plugin;
+    private JavaPlugin plugin;
 
     public MiscUtil(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -56,11 +56,9 @@ public class MiscUtil {
 
         return lastPrintedProgress;
     }
-    public String getFormattedTotalSize(World world) {
-        File worldFolder = world.getWorldFolder();
-        long totalSize = calculateTotalSize(worldFolder);
-        return FormatUtil.humanReadableByteCountBin(totalSize);
-    }
+
+
+
     public void limitBackups(World world) {
         if (!plugin.getConfig().getBoolean("max_backup.enabled")) {
             return;
