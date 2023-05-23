@@ -5,6 +5,8 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.bukkit.Bukkit;
 import org.bukkit.World;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
 import xyz.hynse.hynsebackup.Util.FormatUtil;
 import xyz.hynse.hynsebackup.Util.SchedulerUtil;
@@ -13,40 +15,54 @@ import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.LinkedList;
-import java.util.Queue;
+import java.util.*;
 import java.util.stream.Stream;
 
 public class HynseBackup extends JavaPlugin {
-    private static final int BUFFER_SIZE = 8192;
-    private int lastPrintedProgress = 0;
-    private long totalBytesWritten = 0;
-    private long startTime = 0;
+    public static HynseBackup instance;
+    public static final int BUFFER_SIZE = 8192;
+    public int lastPrintedProgress = 0;
+    public long totalBytesWritten = 0;
+    public long startTime = 0;
+
+    private int compressionLevel;
+    private boolean printProgress;
+    private boolean maxBackupEnabled;
+    private int maxBackupCount;
+
     @Override
     public void onEnable() {
+        instance = this;
         saveDefaultConfig();
-        Queue<String> worldsToBackup = new LinkedList<>(getConfig().getStringList("whitelist-worlds"));
+        compressionLevel = getConfig().getInt("compression.level", 3);
+        printProgress = getConfig().getBoolean("print-progress", true);
+        boolean autoInterventionEnabled = getConfig().getBoolean("auto-intervention.enabled", true);
+        int autoInterventionInterval = getConfig().getInt("auto-intervention.interval", 3600);
+        maxBackupEnabled = getConfig().getBoolean("max-backup.enabled", true);
+        maxBackupCount = getConfig().getInt("max-backup.count", 1);
 
-        startNextBackup(worldsToBackup);
+        if (autoInterventionEnabled) {
+            Bukkit.getScheduler().runTaskTimer(this, this::performAutoIntervention, 20L, autoInterventionInterval * 20L);
+        }
     }
 
     private void startNextBackup(Queue<String> worldsToBackup) {
         String worldName = worldsToBackup.poll();
-        lastPrintedProgress = 0;  // Reset the progress for each world
-        totalBytesWritten = 0;  // Reset total bytes written for each world
+        lastPrintedProgress = 0;
+        totalBytesWritten = 0;
         if (worldName != null) {
             World world = Bukkit.getWorld(worldName);
             if (world != null) {
                 SchedulerUtil.runAsyncDelay(this, () -> backupWorld(world, worldsToBackup), 10);
             } else {
-                getLogger().warning("" + worldName + " does not exist, skipping backup.");
-                startNextBackup(worldsToBackup);  // Start next backup if this world does not exist
+                getLogger().warning(worldName + " does not exist, skipping backup.");
+                startNextBackup(worldsToBackup);
             }
         }
     }
+
     private void backupWorld(World world, Queue<String> worldsToBackup) {
-        startTime = System.currentTimeMillis(); // Initialize startTime at the beginning of your backup process
+        startTime = System.currentTimeMillis();
 
         String worldName = world.getName();
         File worldFolder = world.getWorldFolder();
@@ -59,19 +75,25 @@ public class HynseBackup extends JavaPlugin {
         }
         File backupFile = new File(backupFolder, backupFileName);
         getLogger().info("Starting Backup " + worldName + "...");
+
         try (FileOutputStream fileOutputStream = new FileOutputStream(backupFile);
              BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(fileOutputStream);
-             ZstdOutputStream zstdOutputStream = new ZstdOutputStream(bufferedOutputStream);
-             TarArchiveOutputStream tarOutputStream = new TarArchiveOutputStream(zstdOutputStream)) {
-            tarOutputStream.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU); // replaced TarConstants.LONGFILE_GNU
+             ZstdOutputStream zstdOutputStream = new ZstdOutputStream(bufferedOutputStream, compressionLevel)) {
+            TarArchiveOutputStream tarOutputStream = new TarArchiveOutputStream(zstdOutputStream);
+            tarOutputStream.setLongFileMode(TarArchiveOutputStream.LONGFILE_GNU);
             long totalSize = calculateTotalSize(worldFolder);
-            addFolderToTar(tarOutputStream, worldFolder, worldFolder.getPath(), totalSize, world); // added world argument
+            addFolderToTar(tarOutputStream, worldFolder, worldFolder.getPath(), totalSize, world);
             tarOutputStream.finish();
             getLogger().info("Backup " + worldName + " created successfully.");
+
+            if (maxBackupEnabled) {
+                cleanupOldBackups(backupFolder, worldName);
+            }
         } catch (IOException e) {
             getLogger().warning("Failed to create backup " + worldName);
             e.printStackTrace();
         }
+
         SchedulerUtil.runAsyncDelay(this, () -> startNextBackup(worldsToBackup), 10);
     }
 
@@ -96,7 +118,9 @@ public class HynseBackup extends JavaPlugin {
                         while ((count = bufferedInputStream.read(data)) != -1) {
                             tarOutputStream.write(data, 0, count);
                             totalBytesWritten += count;
-                            printProgress(world, totalBytesWritten, totalSize);
+                            if (printProgress) {
+                                printProgress(world, totalBytesWritten, totalSize);
+                            }
                         }
                         tarOutputStream.closeArchiveEntry();
                     } catch (IOException e) {
@@ -109,10 +133,11 @@ public class HynseBackup extends JavaPlugin {
         }
     }
 
-
-
     private void printProgress(World world, long bytes, long total) {
-        // Pass world as a parameter to the printProgress method
+        if (!printProgress) {
+            return;
+        }
+
         int progress = (int) (100 * bytes / total);
         if (progress >= lastPrintedProgress + 5) {
             getLogger().info(String.format("Backup progress [%s]: %d%%, (%s) Remaining %s",
@@ -134,11 +159,11 @@ public class HynseBackup extends JavaPlugin {
         return FormatUtil.formatTime(remainingTime);
     }
 
-
     private long calculateTotalSize(File worldFolder) {
         try (Stream<Path> pathStream = Files.walk(worldFolder.toPath())) {
             return pathStream
-                    .filter(Files::isRegularFile)                    .mapToLong(path -> {
+                    .filter(Files::isRegularFile)
+                    .mapToLong(path -> {
                         try {
                             return Files.size(path);
                         } catch (IOException e) {
@@ -154,5 +179,99 @@ public class HynseBackup extends JavaPlugin {
             return 0;
         }
     }
-}
 
+    private void performAutoIntervention() {
+        getLogger().info("Performing auto backup intervention...");
+        Queue<String> worldsToBackup = new LinkedList<>(getConfig().getStringList("whitelist-worlds"));
+        startNextBackup(worldsToBackup);
+    }
+
+    private void cleanupOldBackups(File backupFolder, String worldName) {
+        File[] backupFiles = backupFolder.listFiles();
+        if (backupFiles != null) {
+            int totalBackups = 0;
+            for (File backupFile : backupFiles) {
+                if (backupFile.getName().startsWith(worldName + "_")) {
+                    totalBackups++;
+                }
+            }
+
+            int excessBackups = totalBackups - maxBackupCount;
+            if (excessBackups > 0) {
+                for (File backupFile : backupFiles) {
+                    if (backupFile.getName().startsWith(worldName + "_") && excessBackups > 0) {
+                        if (backupFile.delete()) {
+                            getLogger().info("Deleted old backup file: " + backupFile.getName());
+                            excessBackups--;
+                        } else {
+                            getLogger().warning("Failed to delete old backup file: " + backupFile.getName());
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (command.getName().equalsIgnoreCase("backup")) {
+            if (args.length > 0) {
+                if (args[0].equalsIgnoreCase("reload")) {
+                    if (sender.hasPermission("hynsebackup.reload")) {
+                        reloadConfig(); // Reload the configuration
+
+                        compressionLevel = getConfig().getInt("compression.level", 3);
+                        printProgress = getConfig().getBoolean("print-progress", true);
+                        maxBackupEnabled = getConfig().getBoolean("max-backup.enabled", true);
+                        maxBackupCount = getConfig().getInt("max-backup.count", 1);
+
+                        sender.sendMessage("Backup configuration reloaded.");
+                    } else {
+                        sender.sendMessage("You do not have permission to use this command.");
+                    }
+                    return true;
+                } else if (args[0].equalsIgnoreCase("start")) {
+                    if (args.length > 1) {
+                        if (sender.hasPermission("hynsebackup.start")) {
+                            String worldName = args[1];
+                            World world = Bukkit.getWorld(worldName);
+                            if (world != null) {
+                                Queue<String> worldsToBackup = new LinkedList<>();
+                                worldsToBackup.add(worldName);
+                                startNextBackup(worldsToBackup);
+                                sender.sendMessage("Starting backup for world: " + worldName);
+                            } else {
+                                sender.sendMessage("World " + worldName + " does not exist.");
+                            }
+                        } else {
+                            sender.sendMessage("You do not have permission to use this command.");
+                        }
+                    } else {
+                        sender.sendMessage("Usage: /backup start <world>");
+                    }
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    @Override
+    public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
+        if (command.getName().equalsIgnoreCase("backup")) {
+            if (args.length == 2 && args[0].equalsIgnoreCase("start")) {
+                if (sender.hasPermission("hynsebackup.start")) {
+                    String worldPrefix = args[1].toLowerCase();
+                    List<String> worldNames = new ArrayList<>();
+                    for (World world : Bukkit.getWorlds()) {
+                        if (world.getName().toLowerCase().startsWith(worldPrefix)) {
+                            worldNames.add(world.getName());
+                        }
+                    }
+                    return worldNames;
+                }
+            }
+        }
+        return super.onTabComplete(sender, command, alias, args);
+    }
+
+}

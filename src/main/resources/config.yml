@@ -5,7 +5,12 @@ whitelist-worlds:
 
 compression:
   level: 3
+print-progress: true
 
-max_backup:
+auto-intervention:
+  enabled: true
+  interval: 3600
+
+max-backup:
   enabled: true
   count: 1

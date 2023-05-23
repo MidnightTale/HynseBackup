@@ -7,14 +7,21 @@ description: easy auto backup for minecraft server.
 website: https://hynse.xyz
 commands:
   backup:
-    description: Start a backup for a specified world
-    usage: /<command> [start/list] <world>
+    description: Manage backups
+    usage: /backup <reload|start>
+    permission: hynsebackup.use
+    aliases: [hb]
+
 permissions:
+  hynsebackup.use:
+    description: Allows access to all HynseBackup commands
+    default: op
+  hynsebackup.reload:
+    description: Allows reloading the HynseBackup configuration
+    default: op
   hynsebackup.start:
-    description: Allows the player to start a backup
+    description: Allows starting a backup for a specific world
     default: op
-  hynsebackup.list:
-    description: Allows the player to list backups
-    default: op
+
 folia-supported: true
 load: POSTWORLD
