@@ -27,14 +27,21 @@ public class SchedulerUtil {
         if (isFolia()) {
             Bukkit.getAsyncScheduler().runAtFixedRate(plugin, (task) -> runnable.run(), initialDelayTicks, periodTicks, TimeUnit.SECONDS);
         } else {
-            Bukkit.getScheduler().runTaskTimer(plugin, runnable, initialDelayTicks * 20L, periodTicks * 20L);
+            Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, runnable, initialDelayTicks * 20L, periodTicks * 20L);
         }
     }
-    public static void runAsyncNowScheduler(Plugin plugin, Runnable runnable) {
+    public static void runAsyncnow(Plugin plugin, Runnable runnable) {
         if (isFolia()) {
-                Bukkit.getAsyncScheduler().runNow(plugin, (task) -> runnable.run());
+            Bukkit.getAsyncScheduler().runNow(plugin, (task) -> runnable.run());
         } else {
             Bukkit.getScheduler().runTaskAsynchronously(plugin, runnable);
+        }
+    }
+    public static void runAsyncDelay(Plugin plugin, Runnable runnable, int periodTicks) {
+        if (isFolia()) {
+            Bukkit.getAsyncScheduler().runDelayed(plugin, (task) -> runnable.run(), periodTicks, TimeUnit.SECONDS);
+        } else {
+            Bukkit.getScheduler().runTaskLaterAsynchronously(plugin, runnable, periodTicks * 20L);
         }
     }
 
