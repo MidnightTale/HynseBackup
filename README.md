@@ -22,45 +22,30 @@ HynseBackup is an easy-to-use auto backup plugin for Minecraft servers.
 The HynseBackup plugin can be configured through the `config.yml` file located in the plugin's folder. Below is an example configuration:
 
 ```yaml
-auto:
-  # Enable automatic backups
-  enabled: true
-  # Backup interval in seconds (72000 seconds = 20 hours)
-  interval: 72000
-  # Delay before the first backup after server start, in seconds
-  delay: 60
-whitelist_world:
-  # List of worlds to be included in backups
+whitelist-worlds:
   - world
   - world_nether
   - world_the_end
-max_backup:
-  # Enable limiting the number of backups
-  enabled: true
-  # Maximum number of backups to keep
-  count: 3
+
 compression:
-  # Compression mode: zip, zstd, zstd_experimental
-  mode: zstd
-  zstd:
-    # Zstd compression level (1-22)
-    level: 3
-    # Parallelism level for zstd_experimental compression
-    # Note: zstd_experimental mode is experimental and may cause performance issues.
-    # It increases the server's memory when using zstd_experimental mode.
-    parallelism: 4
-  zip:
-    # Zip compression level ((-1)-9)
-    level: -1
-  # Enable progress display using a boss bar
-  bossbar: true
+  level: 3
+print-progress: true
+
+auto-intervention:
+  enabled: true
+  interval: 86400
+
+max-backup:
+  enabled: true
+  count: 3
 ```
 ## Commands
 - `/backup start <world>`: Starts a backup for the specified world.
-- `/backup list`: Lists existing backups.
+- `/backup reload`: Reload config.
 ## Permissions
 - `hynsebackup.start`: Allows the player to start a backup.
-- `hynsebackup.list`: Allows the player to list backups.
+- `hynsebackup.reload`: Reload config.
+- `hynsebackup.use`: Allows access to all HynseBackup commands
 
 ## Contributing
 Contributions to the HynseBackup plugin are welcome! If you would like to contribute
