@@ -42,8 +42,9 @@ public class HynseBackup extends JavaPlugin {
         maxBackupCount = getConfig().getInt("max-backup.count", 1);
 
         if (autoInterventionEnabled) {
-            Bukkit.getScheduler().runTaskTimer(this, this::performAutoIntervention, 20L, autoInterventionInterval * 20L);
+            SchedulerUtil.runAsyncFixRateScheduler(this, this::performAutoIntervention, autoInterventionInterval, autoInterventionInterval);
         }
+
     }
 
     private void startNextBackup(Queue<String> worldsToBackup) {

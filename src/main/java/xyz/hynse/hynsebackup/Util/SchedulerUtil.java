@@ -27,7 +27,7 @@ public class SchedulerUtil {
         if (isFolia()) {
             Bukkit.getAsyncScheduler().runAtFixedRate(plugin, (task) -> runnable.run(), initialDelayTicks, periodTicks, TimeUnit.SECONDS);
         } else {
-            Bukkit.getScheduler().runTaskTimer(plugin, runnable, initialDelayTicks * 20L, periodTicks * 20L);
+            Bukkit.getScheduler().runTaskTimerAsynchronously(plugin, runnable, initialDelayTicks * 20L, periodTicks * 20L);
         }
     }
     public static void runAsyncnow(Plugin plugin, Runnable runnable) {
